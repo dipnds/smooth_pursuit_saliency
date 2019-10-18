@@ -1,8 +1,9 @@
 from scipy.io import arff
-from scipy import ndimage
+from functools import partial
+import scipy.ndimage
 from sklearn.model_selection import train_test_split
 
-import os, cv2, tqdm, skvideo.io, pathlib
+import os, cv2, tqdm, skvideo.io, pathlib, multiprocessing
 import numpy as np
 
 class DataLoader:
@@ -10,43 +11,53 @@ class DataLoader:
         self.name = name
         pathlib.Path(f'{name}/ip/').mkdir(parents=True, exist_ok=True)
         pathlib.Path(f'{name}/op/').mkdir(parents=True, exist_ok=True)
+        pathlib.Path(f'salient_videos/').mkdir(parents=True, exist_ok=True)
         self.files = files
-        self.frame_count = 0 
-        self.frame_std = 0
+
         self.frame_height = 72
         self.frame_width = 128
 
         self.frame_mean = np.zeros([1, self.frame_height, self.frame_width, 3])
         self.frame_std = np.zeros_like(self.frame_mean)
+        self.frame_count = 0 
 
         self.seq_len = 100
         self.shift = 50
-        self.file_count = 0
 
     def load(self):
         print(f'Loading {self.name}')
-        self.file_progress = tqdm.tqdm(self.files)
-        for f in self.file_progress:
-            raw_video = skvideo.io.vread(f'all_videos/{f}')
-            self.file_progress.set_description(f'Resizing: {f}')
-            video = self.resize(raw_video, [raw_video.shape[0], self.frame_height, self.frame_width, 3], np.int32)
+        pool = multiprocessing.Pool(8)
+        manager = multiprocessing.Manager()
+        lock = manager.Lock()
+        file_count = manager.Value('i', 0)
+        for frame_count, frame_mean, frame_std in tqdm.tqdm(pool.imap_unordered(partial(self.process, file_count, lock), self.files), total=len(self.files)):
+            self.frame_count += frame_count
+            self.frame_mean += frame_mean
+            self.frame_std += frame_std
 
-            self.frame_count += raw_video.shape[0]
-            self.frame_mean += np.sum(video, axis=0)
-            self.frame_std += np.sum(video ** 2, axis=0)
-
-            self.file_progress.set_description(f'Calculating Saliency: {f}')
-            saliencyMap = self.makeSaliency(f, raw_video.shape)
-            self.file_progress.set_description(f'Writing: {f}')
-            for i in range(int(np.ceil((video.shape[0] - self.seq_len)/self.shift)) + 1):
-                self.file_count += 1
-                np.save(f'{self.name}/ip/{self.file_count:03d}_vid{f[0:-4]}.npy', video[i*self.shift:np.min((i*self.shift+self.seq_len,video.shape[0])),:,:,:])
-                np.save(f'{self.name}/op/{self.file_count:03d}_lab{f[0:-4]}.npy', saliencyMap[i*self.shift:np.min((i*self.shift+self.seq_len,video.shape[0])),:,:])
-
+        pool.close()
+        pool.join()
 
         self.frame_mean /= self.frame_count
         self.frame_std = np.sqrt((self.frame_std - self.frame_mean**2)/self.frame_count)
         self.frame_std[self.frame_std==0] = 1
+
+    def process(self, file_count, lock, f):
+        raw_video = skvideo.io.vread(f'all_videos/{f}')
+        video = self.resize(raw_video, [raw_video.shape[0], self.frame_height, self.frame_width, 3], np.int32)
+        saliencyMap = self.makeSaliency(f, raw_video.shape)
+
+        self.frame_count += raw_video.shape[0]
+        self.frame_mean += np.sum(video, axis=0)
+        self.frame_std += np.sum(video ** 2, axis=0)
+
+        with lock:
+            for i in range(int(np.ceil((video.shape[0] - self.seq_len)/self.shift)) + 1):
+                file_count.value += 1
+                np.save(f'{self.name}/ip/{file_count.value:03d}_vid{f[0:-4]}.npy', video[i*self.shift:np.min((i*self.shift+self.seq_len,video.shape[0])),:,:,:])
+                np.save(f'{self.name}/op/{file_count.value:03d}_lab{f[0:-4]}.npy', saliencyMap[i*self.shift:np.min((i*self.shift+self.seq_len,video.shape[0])),:,:])
+
+        return self.frame_count, self.frame_mean, self.frame_std
 
     def resize(self, video, shape, dtype):
         resized = np.zeros(shape, dtype=dtype)
@@ -70,9 +81,9 @@ class DataLoader:
                 saliencyMap[i, :, :], _, _ = np.histogram2d(y, x, bins=(shape[1], shape[2]), range=[[-0.5, shape[1] - 0.5], [-0.5, shape[2] - 0.5]])
 
         sigma_t = 24.75/3; sigma_s = 26.178 # see Mikhail for presets
-        ndimage.gaussian_filter(saliencyMap, sigma=[sigma_t, sigma_s, sigma_s], output=saliencyMap) # spatio-temporal smoothing
+        scipy.ndimage.gaussian_filter(saliencyMap, sigma=[sigma_t, sigma_s, sigma_s], output=saliencyMap) # spatio-temporal smoothing
         resized = self.resize(saliencyMap, [saliencyMap.shape[0], self.frame_height, self.frame_width], np.float64)
-        skvideo.io.vwrite('check.mp4',(255*resized/np.max(resized)).astype(np.uint8))
+        self.renderVideo(f, saliencyMap)
         resized = 2*resized/np.max(resized) - 1 # normalised per video
         return resized
 
@@ -86,8 +97,13 @@ class DataLoader:
         np.save('frame_mean.npy', self.frame_mean)
         np.save('frame_std.npy', self.frame_std)
 
+    def renderVideo(self, f, saliencyMap):
+        raw_video = skvideo.io.vread(f'all_videos/{f}')
+        saliencyMap /= np.max(saliencyMap)
+        raw_video[:, :, :, 1] = (raw_video[:, :, :, 1] * (1-saliencyMap)).astype(np.uint8)
+        skvideo.io.vwrite(f'salient_videos/{f}.mp4', raw_video.astype(np.uint8))
 
-train_videos, eval_videos = train_test_split(os.listdir('all_videos'), test_size=0.1, shuffle=False) # eval has 10% of train data
+train_videos, eval_videos = train_test_split(os.listdir('all_videos'), test_size=0.1, random_state=1337, shuffle=False) # eval has 10% of train data
 
 train_set = DataLoader('train', train_videos)
 train_set.load()
