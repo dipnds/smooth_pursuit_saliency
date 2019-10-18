@@ -69,8 +69,8 @@ for vid_list in os.listdir('all_videos'):
     count = int(np.ceil((vid.shape[0] - seq)/shift)) + 1
     for i in range(count):
         file_count += 1
-        np.save(f'ip/vid{file_count}_{vid_list}.npy', vid[i*shift:np.min((i*shift+seq,vid.shape[0])),:,:,:])
-        np.save(f'op/lab{file_count}_{vid_list}.npy', op[i*shift:np.min((i*shift+seq,vid.shape[0])),:,:])
+        np.save(f'ip/vid{file_count}_{vid_list[0:-4]}.npy', vid[i*shift:np.min((i*shift+seq,vid.shape[0])),:,:,:])
+        np.save(f'op/lab{file_count}_{vid_list[0:-4]}.npy', op[i*shift:np.min((i*shift+seq,vid.shape[0])),:,:])
 
 frame_mean /= frame_count
 frame_std = np.sqrt((frame_std - frame_mean**2)/frame_count)
@@ -82,5 +82,9 @@ for vid_list in os.listdir('ip'):
     ip = (ip - frame_mean) / frame_std
     np.save('ip/'+vid_list,ip)
 
-split = train_test_split(os.listdir('ip'),test_size=0.1,shuffle=False)
-tr = split[0]; ev = split[1]
+split = train_test_split(os.listdir('ip'),test_size=0.1,shuffle=False) # eval has 10% of train data
+list_tr = split[0]; list_ev = split[1]
+with open('list_tr.pkl', 'wb') as f:
+    pickle.dump(list_tr, f)
+with open('list_ev.pkl', 'wb') as f:
+    pickle.dump(list_ev, f)
