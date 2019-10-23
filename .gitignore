@@ -4,3 +4,6 @@
 *.pyc
 *.arff
 *.pkl
+*.json
+*.model
+runs/*

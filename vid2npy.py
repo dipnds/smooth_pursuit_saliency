@@ -62,8 +62,8 @@ class DataLoader:
         with lock:
             for i in range(int(np.ceil((video.shape[0] - self.seq_len)/self.shift)) + 1):
                 file_count.value += 1
-                np.save(f'{self.name}/ip/{file_count.value:03d}_vid{f[0:-4]}.npy', video[i*self.shift:np.min((i*self.shift+self.seq_len,video.shape[0])),:,:,:])
-                np.save(f'{self.name}/op/{file_count.value:03d}_lab{f[0:-4]}.npy', saliencyMap[i*self.shift:np.min((i*self.shift+self.seq_len,video.shape[0])),:,:])
+                np.save(f'{self.name}/ip/{file_count.value:03d}_vid_{f[0:-4]}.npy', video[i*self.shift:np.min((i*self.shift+self.seq_len,video.shape[0])),:,:,:])
+                np.save(f'{self.name}/op/{file_count.value:03d}_lab_{f[0:-4]}.npy', saliencyMap[i*self.shift:np.min((i*self.shift+self.seq_len,video.shape[0])),:,:])
 
         return self.frame_count, self.frame_mean, self.frame_std
 
