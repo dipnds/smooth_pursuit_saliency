@@ -9,8 +9,7 @@ import numpy as np
 class Labels(enum.Enum):
     FIX = 0
     SP = 1
-    BLINK = 2
-    OTHER = 3
+    OTHER = 2
 
 class DataLoader:
     def __init__(self, name, files):
@@ -85,16 +84,14 @@ class DataLoader:
             movementLabels = np.ones(labels[0]['EYE_MOVEMENT_TYPE'].shape, dtype=np.float32) * Labels.OTHER.value
             movementLabels[labels[0]['EYE_MOVEMENT_TYPE'] == bytes(Labels.FIX.name, 'utf-8')] = Labels.FIX.value
             movementLabels[labels[0]['EYE_MOVEMENT_TYPE'] == bytes(Labels.SP.name, 'utf-8')] = Labels.SP.value
-            movementLabels[labels[0]['EYE_MOVEMENT_TYPE'] == bytes(Labels.BLINK.name, 'utf-8')] = Labels.BLINK.value
             labelArray = np.vstack([labels[0]['time'], labels[0]['x'], labels[0]['y'], movementLabels]).T.astype(np.float32)
-            labelArray = labelArray[labelArray[:, 3] != Labels.BLINK.value]
             
             frame_period = 1e6/eval(skvideo.io.ffprobe(f'all_videos/{f}')['video']['@avg_frame_rate'])
             labelArray[:, 0] = (labelArray[:, 0]/frame_period).astype(int)
             labelArray[:, 0][labelArray[:, 0] >= shape[0]] = shape[0] - 1 
            
-            samples = [ labelArray, 
-                        labelArray[labelArray[:, 3] != Labels.SP.value],
+            samples = [ labelArray[labelArray[:, 3] != Labels.OTHER.value], 
+                        labelArray[labelArray[:, 3] == Labels.FIX.value],
                         labelArray[labelArray[:, 3] == Labels.SP.value] ]          
             
             for index, subset in enumerate(samples):

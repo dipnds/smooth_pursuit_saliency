@@ -66,7 +66,6 @@ def train_net(n_epochs):
         
         model.train()
         scheduler.step(loss)
-        writer.flush()
         
     print('fin.')
     
