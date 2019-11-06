@@ -9,6 +9,7 @@ from networks.network3 import *
 import networks.network3 as network
 from dataprep import Prep
 
+from metrics import NSS
 import matplotlib.pyplot as plt
 
 batch_size = 2
@@ -31,7 +32,7 @@ def train_net(n_epochs):
     for epoch in range(n_epochs):
         # train
         train_batching = tqdm.tqdm(enumerate(train_loader), total=len(train_loader))
-        tr_loss = []
+        tr_loss = []; metric = []
         for batch_i, data in train_batching:
             ip = data['ip'][:, :-1, :, :, :].to(device)
             # op[0] is all saliency
@@ -51,11 +52,13 @@ def train_net(n_epochs):
             loss = criterion(op, pred)
             loss.backward()
             optimizer.step()
-            tr_loss.append(loss.item()/batch_size)
+            tr_loss.append(loss.item())
+            metric.append(NSS(op,pred))
             if (batch_i+1) % log_nth == 0:
                 train_batching.set_description(f'Train E: {epoch+1}, B: {batch_i+1}, L:{tr_loss[-1]:.2E}')
 
         writer.add_scalar('Loss/train', np.mean(tr_loss), epoch)
+        writer.add_scalar('NSS/train', np.mean(metric), epoch)
         writer.add_image('op',(op[0,0,:,:,:]+1)/2,global_step=epoch,dataformats='CHW')
         writer.add_image('pred',(pred[0,0,:,:,:]+1)/2,global_step=epoch,dataformats='CHW')
         torch.save(model, "descriptor.model")
@@ -63,7 +66,7 @@ def train_net(n_epochs):
         model.eval()
         with torch.no_grad():
             eval_batching = tqdm.tqdm(enumerate(eval_loader), total=len(eval_loader))
-            ev_loss = []
+            ev_loss = []; metric = []
             for batch_i, data in eval_batching:
                 ip = data['ip'][:, :-1, :, :, :].to(device)
                 # op[0] is all saliency
@@ -72,11 +75,13 @@ def train_net(n_epochs):
                 pred = model(ip)
                 pred = pred.float().to(device)
                 loss = criterion(op, pred)
-                ev_loss.append(loss.item()/batch_size)
-        
-            loss = np.mean(ev_loss)
+                ev_loss.append(loss.item())
+                metric.append(NSS(op,pred))
+
+            #loss = np.mean(ev_loss)
             print(f'\nEval E: {epoch+1}, L: {loss:.2E}\n')
-            writer.add_scalar('Loss/eval', np.mean(loss), epoch)
+            writer.add_scalar('Loss/eval', np.mean(ev_loss), epoch)
+            writer.add_scalar('NSS/eval', np.mean(metric), epoch)
         
         model.train()
         scheduler.step(loss)
