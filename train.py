@@ -11,7 +11,7 @@ from dataprep import Prep
 
 import matplotlib.pyplot as plt
 
-batch_size = 64
+batch_size = 2
 log_nth = 10
 down_factor = 1
 epochs = 50
@@ -39,11 +39,9 @@ def train_net(n_epochs):
 
             # sample = data['ip'][0][0].permute(1, 2, 0)
             # sample = (sample - sample.min()) / (sample.max() - sample.min())
-
             # fig, ax = plt.subplots(1,2)
             # ax[0].imshow(data['ip'][0][0].permute(1, 2, 0))
             # ax[1].imshow(data['op'][0, 0, 0, :, :])
-
             # plt.show()
             # exit()
 
@@ -58,6 +56,8 @@ def train_net(n_epochs):
                 train_batching.set_description(f'Train E: {epoch+1}, B: {batch_i+1}, L:{tr_loss[-1]:.2E}')
 
         writer.add_scalar('Loss/train', np.mean(tr_loss), epoch)
+        writer.add_image('op',(op[0,0,:,:,:]+1)/2,global_step=epoch,dataformats='CHW')
+        writer.add_image('pred',(pred[0,0,:,:,:]+1)/2,global_step=epoch,dataformats='CHW')
         torch.save(model, "descriptor.model")
         # eval
         model.eval()
