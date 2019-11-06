@@ -19,8 +19,8 @@ class DataLoader:
         pathlib.Path(f'salient_videos/').mkdir(parents=True, exist_ok=True)
         self.files = files
 
-        self.frame_height = 72
-        self.frame_width = 128
+        self.frame_height = 288
+        self.frame_width = 512
 
         self.frame_mean = np.zeros([1, self.frame_height, self.frame_width, 3])
         self.frame_std = np.zeros_like(self.frame_mean)
@@ -46,7 +46,7 @@ class DataLoader:
 
         try:
             self.frame_mean = (self.frame_mean / self.frame_count).astype(np.float32)
-            self.frame_std = np.sqrt(((self.frame_std - self.frame_mean**2)/self.frame_count).astype(np.float32))
+            self.frame_std = np.sqrt(((self.frame_std/self.frame_count) - self.frame_mean**2).astype(np.float32))
             self.frame_std[self.frame_std==0] = 1
         except TypeError as e:
             print(e, 'Type Error')
@@ -72,6 +72,7 @@ class DataLoader:
                 np.save(f'{self.name}/ip/{file_count.value:03d}_vid_{f[0:-4]}.npy', video[i*self.shift:np.min((i*self.shift+self.seq_len,video.shape[0])):self.framerate_scale,:,:,:].astype(np.float16))
                 np.save(f'{self.name}/op/{file_count.value:03d}_lab_{f[0:-4]}.npy', saliencyMap[i*self.shift:np.min((i*self.shift+self.seq_len,video.shape[0])):self.framerate_scale,:,:].astype(np.float16))
 
+        pathlib.Path(f'{self.name}/{f}').unlink()
         return self.frame_count, self.frame_mean, self.frame_std
 
     def resize(self, video, shape, dtype):
@@ -137,8 +138,20 @@ class DataLoader:
     def normaliseFile(self, vid_file):
         ip = np.load(f'{self.name}/ip/{vid_file}')
         ip = (ip - self.frame_mean) / self.frame_std
-        np.save(f'{self.name}/ip/{vid_file}', ip)
+        np.save(f'{self.name}/ip/{vid_file}', ip.astype(np.float16))
 
+    def calcDistribution(self):
+        files = os.listdir(f'{self.name}/ip')
+        for f in tqdm.tqdm(files):
+            ip = np.load(f'{self.name}/ip/{f}').astype(np.float64)
+            self.frame_count += ip.shape[0]
+            self.frame_mean += np.sum(ip, axis=0)
+            self.frame_std += np.sum(ip ** 2, axis=0)
+
+        self.frame_mean = (self.frame_mean / self.frame_count).astype(np.float32)
+        self.frame_std = np.sqrt(((self.frame_std / self.frame_count) - self.frame_mean**2).astype(np.float32))
+        self.frame_std[self.frame_std==0] = 1
+  
     def writeDistribution(self):
         np.save('frame_mean.npy', self.frame_mean)
         np.save('frame_std.npy', self.frame_std)
@@ -158,15 +171,14 @@ eval_videos = [str(filename.name) for filename in pathlib.Path('eval/').glob('*.
 test_videos = [str(filename.name) for filename in pathlib.Path('test/').glob('*.avi')]
 
 train_set = DataLoader('train', train_videos)
-# train_set.load()
-train_set.frame_mean = np.load('frame_mean.npy')
-train_set.frame_std = np.load('frame_std.npy')
+train_set.calcDistribution()
+#train_set.load()
+train_set.writeDistribution()
 train_set.normaliseFrames(train_set)
-# train_set.writeDistribution()
 
-eval_set = DataLoader('eval', eval_videos)
-eval_set.load()
-eval_set.normaliseFrames(train_set)
+#eval_set = DataLoader('eval', eval_videos)
+#eval_set.load()
+#eval_set.normaliseFrames(train_set)
 
 # test_set = DataLoader('test', test_videos)
 # test_set.load()
