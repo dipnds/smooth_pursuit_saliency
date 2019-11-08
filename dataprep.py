@@ -15,12 +15,16 @@ class Prep(Dataset):
         self.sequence_length = sequence_length
         self.augment = augment
         self.down_factor = down_factor
+
+        self.mean = np.load('frame_mean.npy')
+        self.std = np.load('frame_std.npy')
         
     def __len__(self):
         return len(self.vid_list)
     
     def __getitem__(self, idx):
         ip = np.load(f'{self.path}ip/{self.vid_list[idx]}')
+        ip = (ip - self.mean) / self.std
         op = np.load(f'{self.path}op/{self.lab_list[idx]}')
         # assumes all videos and heatmaps are normalised
         

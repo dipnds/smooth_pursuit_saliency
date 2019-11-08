@@ -13,27 +13,27 @@ class Net(nn.Module):
 
         # down
         self.conv1 = nn.Sequential(
-                       nn.Conv3d(3, 8, 3, padding=1, bias=True),
+                       nn.Conv3d(3, 16, 3, padding=1, bias=True),
                        nn.ReLU(inplace=True)
                        )
-        self.pool1 = nn.MaxPool3d(2,return_indices=True) # 8
+        self.pool1 = nn.MaxPool3d((2,4,4),return_indices=True) # 12, 36, 64
         self.conv2 = nn.Sequential(
-                       nn.Conv3d(8, 32, 3, padding=1, bias=True),
+                       nn.Conv3d(16, 64, 3, padding=1, bias=True),
                        nn.ReLU(inplace=True)
                        )
-        self.pool2 = nn.MaxPool3d(2, return_indices=True) # 4
-        self.conv3 = nn.Sequential(
-                       nn.Conv3d(32, 128, 3, padding=1, bias=True),
-                       nn.ReLU(inplace=True)
-                       )
-        self.pool3 = nn.MaxPool3d(2, return_indices=True) # 2
+        self.pool2 = nn.MaxPool3d((2,4,4), return_indices=True) # 6, 9, 16
+        # self.conv3 = nn.Sequential(
+        #                nn.Conv3d(32, 128, 3, padding=1, bias=True),
+        #                nn.ReLU(inplace=True)
+        #                )
+        # self.pool3 = nn.MaxPool3d(2, return_indices=True) # 2
         # self.conv4 = nn.Sequential(
         #                nn.Conv3d(128, 256, 3, padding=1, bias=True),
         #                nn.ReLU(inplace=True)
         #                )
         # self.pool4 = nn.MaxPool3d((1,2,2), return_indices=True) # 18,32
-        self.conv5 = nn.Sequential(
-                       nn.Conv3d(128, 128, 3, padding=1, bias=True),
+        self.same = nn.Sequential(
+                       nn.Conv3d(64, 64, 3, padding=1, bias=True),
                        nn.ReLU(inplace=True)
                        )
         
@@ -43,19 +43,19 @@ class Net(nn.Module):
         #                nn.Conv3d(256, 128, 3, padding=1, bias=True),
         #                nn.ReLU(inplace=True)
         #                )
-        self.unpool3 = nn.MaxUnpool3d(2)
-        self.upconv3 = nn.Sequential(
-                       nn.Conv3d(128, 32, 3, padding=1, bias=True),
-                       nn.ReLU(inplace=True)
-                       )
-        self.unpool2 = nn.MaxUnpool3d(2)
+        # self.unpool3 = nn.MaxUnpool3d(2)
+        # self.upconv3 = nn.Sequential(
+        #                nn.Conv3d(128, 32, 3, padding=1, bias=True),
+        #                nn.ReLU(inplace=True)
+        #                )
+        self.unpool2 = nn.MaxUnpool3d((2,4,4))
         self.upconv2 = nn.Sequential(
-                       nn.Conv3d(32, 8, 3, padding=1, bias=True),
+                       nn.Conv3d(64, 16, 3, padding=1, bias=True),
                        nn.ReLU(inplace=True)
                        )
-        self.unpool1 = nn.MaxUnpool3d(2)
+        self.unpool1 = nn.MaxUnpool3d((2,4,4))
         self.upconv1 = nn.Sequential(
-                       nn.Conv3d(8, 1, 3, padding=1, bias=True),
+                       nn.Conv3d(16, 1, 3, padding=1, bias=True),
                        nn.ReLU(inplace=True)
                        )
         
@@ -67,15 +67,16 @@ class Net(nn.Module):
         f = self.downsample(f)
         f = f.reshape(*ip.shape[:3], *self.inSize)
         f = f.permute(0,2,1,3,4) # ip.view(-1, *ip.shape[2:])
+
         f = self.conv1(f); f,ind1 = self.pool1(f)
         f = self.conv2(f); f,ind2 = self.pool2(f)
-        f = self.conv3(f); f,ind3 = self.pool3(f)
+        # f = self.conv3(f); f,ind3 = self.pool3(f)
         # f = self.conv4(f); f,ind4 = self.pool4(f)
         
-        f = self.conv5(f)
+        f = self.same(f)
         
         # f = self.unpool4(f,ind4); f = self.upconv4(f)
-        f = self.unpool3(f,ind3); f = self.upconv3(f)
+        # f = self.unpool3(f,ind3); f = self.upconv3(f)
         f = self.unpool2(f,ind2); f = self.upconv2(f)
         f = self.unpool1(f,ind1); f = self.upconv1(f)
         

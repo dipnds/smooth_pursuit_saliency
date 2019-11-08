@@ -5,14 +5,14 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 
-from networks.network3 import *
-import networks.network3 as network
+from networks.network6 import *
+import networks.network6 as network
 from dataprep import Prep
 
 from metrics import NSS
 import matplotlib.pyplot as plt
 
-batch_size = 2
+batch_size = 8
 log_nth = 10
 down_factor = 1
 epochs = 50
@@ -38,22 +38,23 @@ def train_net(n_epochs):
             # op[0] is all saliency
             op = data['op'][:, :-1, 0:1, :, :].to(device)
 
-            # sample = data['ip'][0][0].permute(1, 2, 0)
-            # sample = (sample - sample.min()) / (sample.max() - sample.min())
+            optimizer.zero_grad()
+            pred = model(ip)
+            pred = pred.float().to(device)
+
+            # sample = pred[0][0].squeeze()
             # fig, ax = plt.subplots(1,2)
-            # ax[0].imshow(data['ip'][0][0].permute(1, 2, 0))
+            # ax[0].imshow(sample.detach().cpu().numpy())
             # ax[1].imshow(data['op'][0, 0, 0, :, :])
             # plt.show()
             # exit()
 
-            optimizer.zero_grad()
-            pred = model(ip)
-            pred = pred.float().to(device)
             loss = criterion(op, pred)
             loss.backward()
             optimizer.step()
             tr_loss.append(loss.item())
-            metric.append(NSS(op,pred))
+            with torch.no_grad():
+                metric.append(NSS(op,pred))
             if (batch_i+1) % log_nth == 0:
                 train_batching.set_description(f'Train E: {epoch+1}, B: {batch_i+1}, L:{tr_loss[-1]:.2E}')
 
@@ -79,7 +80,7 @@ def train_net(n_epochs):
                 metric.append(NSS(op,pred))
 
             #loss = np.mean(ev_loss)
-            print(f'\nEval E: {epoch+1}, L: {loss:.2E}\n')
+            print(f'\nEval E: {epoch+1}, L: {np.mean(ev_loss):.2E}\n')
             writer.add_scalar('Loss/eval', np.mean(ev_loss), epoch)
             writer.add_scalar('NSS/eval', np.mean(metric), epoch)
         
