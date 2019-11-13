@@ -1,4 +1,4 @@
-import os
+import os, random
 from torch.utils.data import Dataset
 from torch import from_numpy
 import numpy as np
@@ -21,15 +21,25 @@ class Prep(Dataset):
         
     def __len__(self):
         return len(self.vid_list)
+
+    def random(self):
+        return bool(random.getrandbits(1))
     
     def __getitem__(self, idx):
         ip = np.load(f'{self.path}ip/{self.vid_list[idx]}')
-        ip = (ip - self.mean) / self.std
+        ip = ((ip/255) - [0.485, 0.456, 0.406]) / [0.229, 0.224, 0.225]
+
+        # ip = (ip - self.mean) / self.std
         op = np.load(f'{self.path}op/{self.lab_list[idx]}')
         # assumes all videos and heatmaps are normalised
         
-#        if self.augment:
-#            # not implemented yet
+        if self.augment:
+            if self.random():
+                ip = np.flip(ip, axis=1)
+                op = np.flip(op, axis=1)
+            if self.random():
+                ip = np.flip(ip, axis=2)
+                op = np.flip(op, axis=2)
 #        if self.down_factor != 1:
 #            # not implemented yet
         

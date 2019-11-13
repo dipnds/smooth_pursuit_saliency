@@ -18,7 +18,7 @@ down_factor = 1
 epochs = 50
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-tr_set = Prep('train/', sequence_length=25, augment=False, down_factor=down_factor)
+tr_set = Prep('train/', sequence_length=25, augment=True, down_factor=down_factor)
 ev_set = Prep('eval/', sequence_length=25, augment=False, down_factor=down_factor)
 eval_loader = DataLoader(ev_set, batch_size=batch_size, shuffle=True, num_workers=1)
 train_loader = DataLoader(tr_set, batch_size=batch_size, shuffle=True, num_workers=1)
@@ -58,10 +58,13 @@ def train_net(n_epochs):
             if (batch_i+1) % log_nth == 0:
                 train_batching.set_description(f'Train E: {epoch+1}, B: {batch_i+1}, L:{tr_loss[-1]:.2E}')
 
+        ipImg = ip[0,0,:,:,:]
+        ipImg = (ipImg - ipImg.min()) / (ipImg.max() - ipImg.min())
         writer.add_scalar('Loss/train', np.mean(tr_loss), epoch)
         writer.add_scalar('NSS/train', np.mean(metric), epoch)
-        writer.add_image('op',(op[0,0,:,:,:]+1)/2,global_step=epoch,dataformats='CHW')
-        writer.add_image('pred',(pred[0,0,:,:,:]+1)/2,global_step=epoch,dataformats='CHW')
+        writer.add_image('Input/train', ipImg,global_step=epoch,dataformats='CHW')
+        writer.add_image('Target/train',(op[0,0,:,:,:]+1)/2,global_step=epoch,dataformats='CHW')
+        writer.add_image('Prediction/train',(pred[0,0,:,:,:]+1)/2,global_step=epoch,dataformats='CHW')
         torch.save(model, "descriptor.model")
         # eval
         model.eval()
@@ -80,9 +83,14 @@ def train_net(n_epochs):
                 metric.append(NSS(op,pred))
 
             #loss = np.mean(ev_loss)
+            ipImg = ip[0,0,:,:,:]
+            ipImg = (ipImg - ipImg.min()) / (ipImg.max() - ipImg.min())
             print(f'\nEval E: {epoch+1}, L: {np.mean(ev_loss):.2E}\n')
             writer.add_scalar('Loss/eval', np.mean(ev_loss), epoch)
             writer.add_scalar('NSS/eval', np.mean(metric), epoch)
+            writer.add_image('Input/eval', ipImg,global_step=epoch,dataformats='CHW')
+            writer.add_image('Target/eval',(op[0,0,:,:,:]+1)/2,global_step=epoch,dataformats='CHW')
+            writer.add_image('Prediction/eval',(pred[0,0,:,:,:]+1)/2,global_step=epoch,dataformats='CHW')
         
         model.train()
         scheduler.step(loss)
