@@ -33,7 +33,7 @@ class Prep(Dataset):
         ip = ((ip/255) - [0.485, 0.456, 0.406]) / [0.229, 0.224, 0.225]
 
         # ip = (ip - self.mean) / self.std
-        op = (np.load(f'{self.path}op/{self.lab_list[idx]}') + 1) / 2
+        op = (np.load(f'{self.path}op/{self.lab_list[idx]}') + 1) / 2 # careful that NSS has a similar conversion (now removed)
         # assumes all videos and heatmaps are normalised
         
         if self.augment:
@@ -58,3 +58,9 @@ class Prep(Dataset):
         array = np.transpose(array, (0,3,1,2))
         array = from_numpy(array).float()
         return array
+
+    def check(self):
+        for i in range(len(self)):
+            print(f'{self.path}ip/{self.vid_list[i]}')
+            a = np.load(f'{self.path}ip/{self.vid_list[i]}')
+            b = np.load(f'{self.path}op/{self.lab_list[i]}')
