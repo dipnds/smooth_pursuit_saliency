@@ -5,23 +5,23 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 
-from networks.network6 import *
-import networks.network6 as network
-from dataprep import Prep
+from networks.network1 import *
+import networks.network1 as network
+from loaders import *
 
 from metrics import NSS
 import matplotlib.pyplot as plt
 
-batch_size = 8
+batch_size = 4
 log_nth = 10
 down_factor = 1
 epochs = 50
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-tr_set = Prep('train/', sequence_length=25, augment=True, down_factor=down_factor)
-ev_set = Prep('eval/', sequence_length=25, augment=False, down_factor=down_factor)
-eval_loader = DataLoader(ev_set, batch_size=batch_size, shuffle=True, num_workers=4)
-train_loader = DataLoader(tr_set, batch_size=batch_size, shuffle=True, num_workers=4)
+tr_set = VideoSet('train/', sequence_length=25, augment=True, down_factor=down_factor)
+ev_set = VideoSet('eval/', sequence_length=25, augment=False, down_factor=down_factor)
+eval_loader = DataLoader(ev_set, batch_size=4, num_workers=7)
+train_loader = DataLoader(tr_set, batch_size=batch_size, num_workers=7)
 # tr_set.check(); ev_set.check()
 
 name = network.__name__.split('.')[1]
@@ -55,8 +55,8 @@ def train_net(n_epochs):
             loss.backward()
             optimizer.step()
             tr_loss.append(loss.item())
-            with torch.no_grad():
-                metric.append(NSS(op,pred))
+            # with torch.no_grad():
+                # metric.append(NSS(op,pred))
             if (batch_i+1) % log_nth == 0:
                 train_batching.set_description(f'Train E: {epoch+1}, B: {batch_i+1}, L:{np.mean(tr_loss):.2E}')
 
@@ -104,7 +104,8 @@ def train_net(n_epochs):
     print('fin.')
     
 model = Net().to(device)
+# model = torch.load('best_network1_793.model')
 criterion = LossFrame().to(device)
-optimizer = optim.Adam(model.parameters(), lr=1e-3, betas=(0.9,0.999), eps=1e-8, weight_decay=0.0)
-scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.2)
+optimizer = optim.Adam(model.parameters(), lr=1e-5, betas=(0.9,0.999), eps=1e-8, weight_decay=0.0)
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.2)
 train_net(epochs)

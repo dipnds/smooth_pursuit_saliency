@@ -6,17 +6,17 @@ import skvideo.io
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 
-from networks.network6 import *
-import networks.network6 as network
-from dataprep import Prep
+from networks.network1 import *
+import networks.network1 as network
+from loaders import *
 import matplotlib.pyplot as plt
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-ev_set = Prep('eval/', sequence_length=25, augment=False, down_factor=1, output_raw=True)
+ev_set = VideoSet('eval/', sequence_length=25, augment=False, down_factor=1, output_raw=True)
 eval_loader = DataLoader(ev_set, batch_size=1, shuffle=True, num_workers=1)
 
-model = torch.load('best.model')
+model = torch.load('best_network1_772.model')
 writer = skvideo.io.FFmpegWriter("inference.mp4", inputdict={'-r': '3'})
 with torch.no_grad():
     batching = tqdm.tqdm(enumerate(eval_loader), total=len(eval_loader))

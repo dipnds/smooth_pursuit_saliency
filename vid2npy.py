@@ -16,6 +16,7 @@ class DataLoader:
         self.name = name
         pathlib.Path(f'{name}/ip/').mkdir(parents=True, exist_ok=True)
         pathlib.Path(f'{name}/op/').mkdir(parents=True, exist_ok=True)
+        pathlib.Path(f'{name}/pts/').mkdir(parents=True, exist_ok=True)
         pathlib.Path(f'salient_videos/').mkdir(parents=True, exist_ok=True)
         self.files = files
 
@@ -32,7 +33,7 @@ class DataLoader:
 
     def load(self):
         print(f'Loading {self.name}')
-        pool = multiprocessing.Pool(4, maxtasksperchild=1)
+        pool = multiprocessing.Pool(1)
         manager = multiprocessing.Manager()
         lock = manager.Lock()
         file_count = manager.Value('i', 0)
@@ -60,7 +61,7 @@ class DataLoader:
         raw_shape = raw_video.shape
         video = self.resize(raw_video, [raw_video.shape[0], self.frame_height, self.frame_width, 3], np.int32)
         raw_video = None
-        saliencyMap = self.makeSaliency(f, raw_shape)
+        saliencyMap, pointsMap = self.makeSaliency(f, raw_shape)
 
         self.frame_count += raw_shape[0]
         self.frame_mean += np.sum(video, axis=0)
@@ -69,10 +70,11 @@ class DataLoader:
         with lock:
             for i in range(int(np.ceil((video.shape[0] - self.seq_len)/self.shift)) + 1):
                 file_count.value += 1
-                np.save(f'{self.name}/ip/{file_count.value:03d}_vid_{f[0:-4]}.npy', video[i*self.shift:np.min((i*self.shift+self.seq_len,video.shape[0])):self.framerate_scale,:,:,:].astype(np.float16))
-                np.save(f'{self.name}/op/{file_count.value:03d}_lab_{f[0:-4]}.npy', saliencyMap[i*self.shift:np.min((i*self.shift+self.seq_len,video.shape[0])):self.framerate_scale,:,:].astype(np.float16))
+                np.save(f'{self.name}/pts/{file_count.value:03d}_vid_{f[0:-4]}.npy', pointsMap[i*self.shift:np.min((i*self.shift+self.seq_len,video.shape[0])):self.framerate_scale,:,:,:].astype(np.uint8))
+                # np.save(f'{self.name}/ip/{file_count.value:03d}_vid_{f[0:-4]}.npy', video[i*self.shift:np.min((i*self.shift+self.seq_len,video.shape[0])):self.framerate_scale,:,:,:].astype(np.float16))
+                # np.save(f'{self.name}/op/{file_count.value:03d}_lab_{f[0:-4]}.npy', saliencyMap[i*self.shift:np.min((i*self.shift+self.seq_len,video.shape[0])):self.framerate_scale,:,:].astype(np.float16))
 
-        pathlib.Path(f'{self.name}/{f}').unlink()
+        # pathlib.Path(f'{self.name}/{f}').unlink()
         return self.frame_count, self.frame_mean, self.frame_std
 
     def resize(self, video, shape, dtype):
@@ -113,15 +115,16 @@ class DataLoader:
 
         sigma_t = 24.75/3; sigma_s = 26.178 # see Mikhail for presets
         resizedSaliency = np.zeros([saliencyMap.shape[0], self.frame_height, self.frame_width, 3], dtype=np.float32)
-        for index, _ in enumerate(samples):
-            saliencyMap[:, :, :, index] = scipy.ndimage.gaussian_filter(saliencyMap[:, :, :, index], sigma=[sigma_t, sigma_s, sigma_s]) # spatio-temporal smoothing
-            resized = self.resize(saliencyMap[:, :, :, index], [saliencyMap.shape[0], self.frame_height, self.frame_width], np.float64)
-            maximum = np.max(resized)
-            resizedSaliency[:, :, :, index] = (2*resized/(maximum if maximum != 0 else 1)) - 1
+        pointsMap = saliencyMap.astype(np.uint8)
+        # for index, _ in enumerate(samples):
+            # saliencyMap[:, :, :, index] = scipy.ndimage.gaussian_filter(saliencyMap[:, :, :, index], sigma=[sigma_t, sigma_s, sigma_s]) # spatio-temporal smoothing
+            # resized = self.resize(saliencyMap[:, :, :, index], [saliencyMap.shape[0], self.frame_height, self.frame_width], np.float64)
+            # maximum = np.max(resized)
+            # resizedSaliency[:, :, :, index] = (2*resized/(maximum if maximum != 0 else 1)) - 1
 
         # self.renderVideo(f, saliencyMap)
 
-        return resizedSaliency
+        return resizedSaliency, pointsMap
 
     def normaliseFrames(self, loader):
         self.frame_mean = loader.frame_mean
@@ -170,14 +173,14 @@ train_videos = [str(filename.name) for filename in pathlib.Path('train/').glob('
 eval_videos = [str(filename.name) for filename in pathlib.Path('eval/').glob('*.avi')]
 test_videos = [str(filename.name) for filename in pathlib.Path('test/').glob('*.avi')]
 
-train_set = DataLoader('train', train_videos)
-train_set.calcDistribution()
-#train_set.load()
-train_set.writeDistribution()
-train_set.normaliseFrames(train_set)
+# train_set = DataLoader('train', train_videos)
+# train_set.calcDistribution()
+# train_set.load()
+# train_set.writeDistribution()
+# train_set.normaliseFrames(train_set)
 
-#eval_set = DataLoader('eval', eval_videos)
-#eval_set.load()
+eval_set = DataLoader('eval', eval_videos)
+eval_set.load()
 #eval_set.normaliseFrames(train_set)
 
 # test_set = DataLoader('test', test_videos)
