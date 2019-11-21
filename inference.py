@@ -14,7 +14,7 @@ import matplotlib.pyplot as plt
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 ev_set = VideoSet('eval/', sequence_length=25, augment=False, down_factor=1, output_raw=True)
-eval_loader = DataLoader(ev_set, batch_size=1, shuffle=True, num_workers=1)
+eval_loader = DataLoader(ev_set, batch_size=1, shuffle=False, num_workers=1)
 
 model = torch.load('best_network1_772.model')
 writer = skvideo.io.FFmpegWriter("inference.mp4", inputdict={'-r': '3'})

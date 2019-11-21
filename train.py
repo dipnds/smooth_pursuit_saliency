@@ -20,8 +20,8 @@ epochs = 50
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
 tr_set = VideoSet('train/', sequence_length=25, augment=True, down_factor=down_factor)
 ev_set = VideoSet('eval/', sequence_length=25, augment=False, down_factor=down_factor)
-eval_loader = DataLoader(ev_set, batch_size=4, num_workers=7)
-train_loader = DataLoader(tr_set, batch_size=batch_size, num_workers=7)
+eval_loader = DataLoader(ev_set, batch_size=4, shuffle=True, num_workers=7)
+train_loader = DataLoader(tr_set, batch_size=batch_size, shuffle=True, num_workers=7)
 # tr_set.check(); ev_set.check()
 
 name = network.__name__.split('.')[1]
@@ -105,7 +105,7 @@ def train_net(n_epochs):
     
 model = Net().to(device)
 # model = torch.load('best_network1_793.model')
-criterion = LossFrame().to(device)
-optimizer = optim.Adam(model.parameters(), lr=1e-5, betas=(0.9,0.999), eps=1e-8, weight_decay=0.0)
+criterion = LossSequence().to(device)
+optimizer = optim.Adam(model.parameters(), lr=1e-3, betas=(0.9,0.999), eps=1e-8, weight_decay=0.0)
 scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.2)
 train_net(epochs)

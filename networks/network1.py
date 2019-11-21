@@ -97,7 +97,7 @@ class LossSequence(nn.Module):
         self.criterion = nn.KLDivLoss(reduction='batchmean')
 
     def softmax(self, i):
-        return i.exp() / i.exp().sum(dim=(1, 2, 3, 4),keepdim=True)
+        return i / i.sum(dim=(1, 2, 3, 4),keepdim=True)
         
     def forward(self, expected, predicted):
         # fig, ax = plt.subplots(1,2)

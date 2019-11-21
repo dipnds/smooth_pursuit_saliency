@@ -1,5 +1,5 @@
 import os, random, torch
-from torch.utils.data import Dataset, IterableDataset
+from torch.utils.data import Dataset
 import numpy as np
 
 class VideoSet(Dataset):
@@ -64,63 +64,63 @@ class VideoSet(Dataset):
             a = np.load(f'{self.path}ip/{self.vid_list[i]}')
             b = np.load(f'{self.path}op/{self.lab_list[i]}')
 
-class SingleSet(IterableDataset):
-    def __init__(self, path, sequence_length, augment=False, down_factor=1, output_raw=False):
-        self.path = path
-        self.vid_list = os.listdir(f'{path}ip/')
-        self.lab_list = os.listdir(f'{path}op/')
+# class SingleSet(IterableDataset):
+#     def __init__(self, path, sequence_length, augment=False, down_factor=1, output_raw=False):
+#         self.path = path
+#         self.vid_list = os.listdir(f'{path}ip/')
+#         self.lab_list = os.listdir(f'{path}op/')
 
-        self.vid_list.sort()
-        self.lab_list.sort()
+#         self.vid_list.sort()
+#         self.lab_list.sort()
 
-        self.vid_list = self.blockVideos(self.vid_list)
-        self.lab_list = self.blockVideos(self.lab_list)
+#         self.vid_list = self.blockVideos(self.vid_list)
+#         self.lab_list = self.blockVideos(self.lab_list)
 
-        self.lens = self.getVidLen(self.vid_list)
+#         self.lens = self.getVidLen(self.vid_list)
         
-        self.sequence_length = sequence_length
-        self.augment = augment
-        self.down_factor = down_factor
-        self.output_raw = output_raw
+#         self.sequence_length = sequence_length
+#         self.augment = augment
+#         self.down_factor = down_factor
+#         self.output_raw = output_raw
 
-        self.mean = np.load('frame_mean.npy')
-        self.std = np.load('frame_std.npy')
+#         self.mean = np.load('frame_mean.npy')
+#         self.std = np.load('frame_std.npy')
 
-    def blockVideos(self, blocklist):
-        videos = []
-        currentVid = self.getVidIdent(blocklist[0])
-        currentBlock = []
-        for i, item in enumerate(blocklist):
-            if self.getVidIdent(item) == currentVid:
-                currentBlock.append(item)
-            else:
-                videos.append(currentBlock)
-                currentVid = self.getVidIdent(item)
-                currentBlock = [item]
+#     def blockVideos(self, blocklist):
+#         videos = []
+#         currentVid = self.getVidIdent(blocklist[0])
+#         currentBlock = []
+#         for i, item in enumerate(blocklist):
+#             if self.getVidIdent(item) == currentVid:
+#                 currentBlock.append(item)
+#             else:
+#                 videos.append(currentBlock)
+#                 currentVid = self.getVidIdent(item)
+#                 currentBlock = [item]
 
-        videos.append(currentBlock)
+#         videos.append(currentBlock)
 
-        return videos
+#         return videos
 
-    def getVidIdent(self, filename):
-        return filename[-9:]
+#     def getVidIdent(self, filename):
+#         return filename[-9:]
 
-    def getVidLen(self, vidlist):
-        lens = []
-        for vid in vidlist:
-            l = 0
-            for item in vid:
-                l += np.load(f'{self.path}ip/{item}').shape[0]
-            lens.append(l)
+#     def getVidLen(self, vidlist):
+#         lens = []
+#         for vid in vidlist:
+#             l = 0
+#             for item in vid:
+#                 l += np.load(f'{self.path}ip/{item}').shape[0]
+#             lens.append(l)
 
-        return lens
+#         return lens
         
-    def __len__(self):
-        return len(self.vid_list)
+#     def __len__(self):
+#         return len(self.vid_list)
 
-    def __iter__(self):
-        worker = torch.utils.data.get_worker_info()
-        per_worker = len(self.vid_list) / worker.num_workers
-        print(worker.id)
-        exit()
+#     def __iter__(self):
+#         worker = torch.utils.data.get_worker_info()
+#         per_worker = len(self.vid_list) / worker.num_workers
+#         print(worker.id)
+#         exit()
 
