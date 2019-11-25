@@ -167,3 +167,20 @@ class ConvLSTM(nn.Module):
         if not isinstance(param, list):
             param = [param] * num_layers
         return param
+
+class BConvLSTM(nn.Module):
+    def __init__(self, input_size, input_dim, hidden_dim, kernel_size, num_layers,
+                 batch_first=False, bias=True, return_all_layers=False):
+        super(BConvLSTM, self).__init__()
+
+        self.front = ConvLSTM(input_size, input_dim, hidden_dim, kernel_size, num_layers,
+                 batch_first, bias, return_all_layers)
+        self.back = ConvLSTM(input_size, input_dim, hidden_dim, kernel_size, num_layers,
+                 batch_first, bias, return_all_layers)
+
+    def forward(self, x):
+        x = self.front(x)
+        x = x.flip((1))
+        x = self.back(x)
+        x = x.flip((1))
+        return x

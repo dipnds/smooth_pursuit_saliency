@@ -5,8 +5,8 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 
-from networks.network2 import *
-import networks.network2 as network
+from networks.network3 import *
+import networks.network3 as network
 from networks.losses import *
 from loaders import *
 
@@ -28,15 +28,16 @@ train_loader = DataLoader(tr_set, batch_size=batch_size, shuffle=True, num_worke
 name = network.__name__.split('.')[1]
 
 writer = SummaryWriter(comment=name)
+torch.autograd.set_detect_anomaly(True)
 
 def train(model, epochNum):
     criterion = LossSequence()
-    tr_loss = []; metric = []
+    tr_loss_fix = []; tr_loss_sp = []; metric = []
     train_batching = tqdm.tqdm(enumerate(train_loader), total=len(train_loader))
     for batch_i, data in train_batching:
         ip = data['ip'][:, :, :, :, :].to(device)
         # op[0] is all saliency
-        op = data['op'][:, :, 0:1, :, :].to(device)
+        op = data['op'][:, :, 1:, :, :].to(device)
 
         optimizer.zero_grad()
         pred = model(ip)
@@ -48,19 +49,21 @@ def train(model, epochNum):
         # plt.show()
         # exit()
 
-        loss = criterion(op, pred)
-        loss.backward()
+        loss_fix = criterion(op[:,:,0:1,:,:], pred[:,:,0:1,:,:])
+        loss_sp = criterion(op[:,:,1:2,:,:], pred[:,:,1:2,:,:])
+        (loss_fix+loss_sp).backward()
         optimizer.step()
-        tr_loss.append(loss.detach().item())
+        tr_loss_fix.append(loss_fix.detach().item())
+        tr_loss_sp.append(loss_sp.detach().item())
         # with torch.no_grad():
             # metric.append(NSS(op,pred))
         if (batch_i+1) % log_nth == 0:
-            train_batching.set_description(f'Train E: {epoch+1}, B: {batch_i+1}, L:{np.mean(tr_loss):.2E}')
+            train_batching.set_description(f'Train E: {epoch+1}, B: {batch_i+1}, L:{np.mean(tr_loss_sp+tr_loss_fix):.2E}')
 
     ipImg = ip[0,0,:,:,:].detach()
     ipImg = (ipImg - ipImg.min()) / (ipImg.max() - ipImg.min())
-    writer.add_scalar('Loss/train', np.mean(tr_loss), epoch)
-    # writer.add_scalar('NSS/train', np.mean(metric), epoch)
+    writer.add_scalar('Loss/fix_train', np.mean(tr_loss_fix), epoch)
+    writer.add_scalar('Loss/sp_train', np.mean(tr_loss_sp), epoch)
     writer.add_image('Input/train', ipImg,global_step=epoch,dataformats='CHW')
     writer.add_image('Target/train',op[0,0,:,:,:].detach(),global_step=epoch,dataformats='CHW')
     writer.add_image('Prediction/train',pred[0,0,:,:,:].detach(),global_step=epoch,dataformats='CHW')
@@ -70,20 +73,22 @@ def evaluate(model, epoch, best_eval, scheduler):
     criterion = LossSequence()
     model.eval()
     with torch.no_grad():
-        ev_loss = []; metric = []
+        ev_loss_fix = []; ev_loss_sp = []; metric = []
         eval_batching = tqdm.tqdm(enumerate(eval_loader), total=len(eval_loader))
         for batch_i, data in eval_batching:
             ip = data['ip'][:, :, :, :, :].to(device)
             # op[0] is all saliency
-            op = data['op'][:, :, 0:1, :, :].to(device)
+            op = data['op'][:, :, 1:, :, :].to(device)
 
             pred = model(ip)
             pred = pred.float().to(device)
-            loss = criterion(op, pred)
-            ev_loss.append(loss.detach().item())
+            loss_fix = criterion(op[:,:,0:1,:,:], pred[:,:,0:1,:,:])
+            loss_sp = criterion(op[:,:,1:2,:,:], pred[:,:,1:2,:,:])
+            ev_loss_fix.append(loss_fix.detach().item())
+            ev_loss_sp.append(loss_sp.detach().item())
             # metric.append(NSS(op,pred))
 
-        loss = np.mean(ev_loss)
+        loss = np.mean(ev_loss_fix+ev_loss_sp)
         ipImg = ip[0,0,:,:,:]
         ipImg = (ipImg - ipImg.min()) / (ipImg.max() - ipImg.min())
         print(f'\nEval E: {epoch+1}, L: {loss:.2E}\n')
@@ -91,8 +96,8 @@ def evaluate(model, epoch, best_eval, scheduler):
             best_eval = loss
             torch.save(model, f"best_{name}.model")
 
-        writer.add_scalar('Loss/eval', loss, epoch)
-        # writer.add_scalar('NSS/eval', np.mean(metric), epoch)
+        writer.add_scalar('Loss/fix_eval', loss_fix, epoch)
+        writer.add_scalar('Loss/sp_eval', loss_sp, epoch)
         writer.add_image('Input/eval', ipImg,global_step=epoch,dataformats='CHW')
         writer.add_image('Target/eval',op[0,0,:,:,:],global_step=epoch,dataformats='CHW')
         writer.add_image('Prediction/eval',pred[0,0,:,:,:],global_step=epoch,dataformats='CHW')

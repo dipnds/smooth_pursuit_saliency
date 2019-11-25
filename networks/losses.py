@@ -1,5 +1,6 @@
 import torch.nn as nn
 import matplotlib.pyplot as plt
+import torch
 
 class LossFrame(nn.Module):
     def __init__(self):
@@ -29,6 +30,11 @@ class LossSequence(nn.Module):
     def __init__(self):
         super(LossSequence, self).__init__()
         self.criterion = nn.KLDivLoss(reduction='batchmean')
+        # import numpy as np
+        # self.dummy = np.append(np.ones((2,25,1,288,512)), np.zeros((3,25,1,288,512)),axis=0)
+        # self.dummy = torch.from_numpy(self.dummy)
+        # self.softmax(self.dummy)
+        # exit()
 
     def softmax(self, i):
         return i / i.sum(dim=(1, 2, 3, 4),keepdim=True)
@@ -38,8 +44,9 @@ class LossSequence(nn.Module):
         # ax[0].imshow(expected[0, 0, 0, :, :].cpu().detach().numpy(), cmap='bone', vmin=0,vmax=1)
         # ax[1].imshow(predicted[0, 0, 0, :, :].cpu().detach().numpy(), cmap='bone', vmin=0,vmax=1)
         # plt.show()
-        predicted = (self.softmax(predicted)).log() # see KLDiv
-        expected = self.softmax(expected)
+
+        predicted = (self.softmax(predicted+1e-8)).log() # see KLDiv
+        expected = self.softmax(expected+1e-8)
 
         loss = self.criterion(predicted, expected)
         return loss
