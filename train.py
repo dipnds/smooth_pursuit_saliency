@@ -62,11 +62,15 @@ def train(model, epochNum):
 
     ipImg = ip[0,0,:,:,:].detach()
     ipImg = (ipImg - ipImg.min()) / (ipImg.max() - ipImg.min())
-    writer.add_scalar('Loss/fix_train', np.mean(tr_loss_fix), epoch)
-    writer.add_scalar('Loss/sp_train', np.mean(tr_loss_sp), epoch)
+    writer.add_scalar('LossFix/fix_train', np.mean(tr_loss_fix), epoch)
+    writer.add_scalar('LossSP/sp_train', np.mean(tr_loss_sp), epoch)
+    writer.add_scalar('Loss/train', np.mean(tr_loss_fix) + np.mean(tr_loss_sp), epoch)
     writer.add_image('Input/train', ipImg,global_step=epoch,dataformats='CHW')
-    writer.add_image('Target/train',op[0,0,:,:,:].detach(),global_step=epoch,dataformats='CHW')
-    writer.add_image('Prediction/train',pred[0,0,:,:,:].detach(),global_step=epoch,dataformats='CHW')
+    writer.add_image('TargetFix/fix_train',op[0,0,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
+    writer.add_image('TargetSP/sp_train',op[0,0,1:2,:,:].detach(),global_step=epoch,dataformats='CHW')
+    writer.add_image('PredictionFix/fix_train',pred[0,0,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
+    writer.add_image('PredictionSP/sp_train',pred[0,0,1:2,:,:].detach(),global_step=epoch,dataformats='CHW')
+
     # torch.save(model, f"{name}.model")
 
 def evaluate(model, epoch, best_eval, scheduler):
@@ -96,11 +100,14 @@ def evaluate(model, epoch, best_eval, scheduler):
             best_eval = loss
             torch.save(model, f"best_{name}.model")
 
-        writer.add_scalar('Loss/fix_eval', loss_fix, epoch)
-        writer.add_scalar('Loss/sp_eval', loss_sp, epoch)
+        writer.add_scalar('LossFix/fix_eval', np.mean(ev_loss_fix), epoch)
+        writer.add_scalar('LossSP/sp_eval', np.mean(ev_loss_sp), epoch)
+        writer.add_scalar('Loss/eval', np.mean(ev_loss_fix) + np.mean(ev_loss_sp), epoch)
         writer.add_image('Input/eval', ipImg,global_step=epoch,dataformats='CHW')
-        writer.add_image('Target/eval',op[0,0,:,:,:],global_step=epoch,dataformats='CHW')
-        writer.add_image('Prediction/eval',pred[0,0,:,:,:],global_step=epoch,dataformats='CHW')
+        writer.add_image('TargetFix/fix_eval',op[0,0,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
+        writer.add_image('TargetSP/sp_eval',op[0,0,1:2,:,:].detach(),global_step=epoch,dataformats='CHW')
+        writer.add_image('PredictionFix/fix_eval',pred[0,0,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
+        writer.add_image('PredictionSP/sp_eval',pred[0,0,1:2,:,:].detach(),global_step=epoch,dataformats='CHW')
     
     scheduler.step()
     return best_eval
