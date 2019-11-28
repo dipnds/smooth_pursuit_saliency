@@ -28,10 +28,12 @@ class Net(nn.Module):
                 nn.Conv2d(512, 256, 3, padding=1, bias=True),
                 nn.BatchNorm2d(256),
                 nn.ReLU(inplace=True),
+                nn.Dropout2d(p=0.3, inplace=False),
                 # nn.Upsample(scale_factor=2,mode='bicubic'), # 18, 32
                 nn.Conv2d(256, 128, 3, padding=1, bias=True),
                 nn.BatchNorm2d(128),
                 nn.ReLU(inplace=True),
+                nn.Dropout2d(p=0.3, inplace=False),
                 # nn.Upsample(scale_factor=2,mode='bicubic'), # 72, 128
                 nn.Conv2d(128, 64, 3, padding=1, bias=True),
                 nn.BatchNorm2d(64),

@@ -5,8 +5,8 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 
-from networks.network3 import *
-import networks.network3 as network
+from networks.network4 import *
+import networks.network4 as network
 from networks.losses import *
 from loaders import *
 
@@ -40,7 +40,7 @@ def train(model, epochNum):
         op = data['op'][:, :, 1:, :, :].to(device)
 
         optimizer.zero_grad()
-        pred = model(ip)
+        pred_fix,pred_sp = model(ip)
 
         # sample = pred[0][0].squeeze()
         # fig, ax = plt.subplots(1,2)
@@ -49,8 +49,8 @@ def train(model, epochNum):
         # plt.show()
         # exit()
 
-        loss_fix = criterion(op[:,:,0:1,:,:], pred[:,:,0:1,:,:])
-        loss_sp = criterion(op[:,:,1:2,:,:], pred[:,:,1:2,:,:])
+        loss_fix = criterion(op[:,:,0:1,:,:], pred_fix[:,:,0:1,:,:])
+        loss_sp = criterion(op[:,:,1:2,:,:], pred_sp[:,:,0:1,:,:])
         (loss_fix+loss_sp).backward()
         optimizer.step()
         tr_loss_fix.append(loss_fix.detach().item())
@@ -68,8 +68,8 @@ def train(model, epochNum):
     writer.add_image('Input/train', ipImg,global_step=epoch,dataformats='CHW')
     writer.add_image('TargetFix/fix_train',op[0,0,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
     writer.add_image('TargetSP/sp_train',op[0,0,1:2,:,:].detach(),global_step=epoch,dataformats='CHW')
-    writer.add_image('PredictionFix/fix_train',pred[0,0,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
-    writer.add_image('PredictionSP/sp_train',pred[0,0,1:2,:,:].detach(),global_step=epoch,dataformats='CHW')
+    writer.add_image('PredictionFix/fix_train',pred_fix[0,0,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
+    writer.add_image('PredictionSP/sp_train',pred_sp[0,0,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
 
     # torch.save(model, f"{name}.model")
 
@@ -84,10 +84,9 @@ def evaluate(model, epoch, best_eval, scheduler):
             # op[0] is all saliency
             op = data['op'][:, :, 1:, :, :].to(device)
 
-            pred = model(ip)
-            pred = pred.float().to(device)
-            loss_fix = criterion(op[:,:,0:1,:,:], pred[:,:,0:1,:,:])
-            loss_sp = criterion(op[:,:,1:2,:,:], pred[:,:,1:2,:,:])
+            pred_fix,pred_sp = model(ip)
+            loss_fix = criterion(op[:,:,0:1,:,:], pred_fix[:,:,0:1,:,:])
+            loss_sp = criterion(op[:,:,1:2,:,:], pred_sp[:,:,0:1,:,:])
             ev_loss_fix.append(loss_fix.detach().item())
             ev_loss_sp.append(loss_sp.detach().item())
             # metric.append(NSS(op,pred))
@@ -106,16 +105,16 @@ def evaluate(model, epoch, best_eval, scheduler):
         writer.add_image('Input/eval', ipImg,global_step=epoch,dataformats='CHW')
         writer.add_image('TargetFix/fix_eval',op[0,0,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
         writer.add_image('TargetSP/sp_eval',op[0,0,1:2,:,:].detach(),global_step=epoch,dataformats='CHW')
-        writer.add_image('PredictionFix/fix_eval',pred[0,0,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
-        writer.add_image('PredictionSP/sp_eval',pred[0,0,1:2,:,:].detach(),global_step=epoch,dataformats='CHW')
+        writer.add_image('PredictionFix/fix_eval',pred_fix[0,0,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
+        writer.add_image('PredictionSP/sp_eval',pred_sp[0,0,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
     
     scheduler.step()
     return best_eval
     
 model = Net().to(device)
 # model = torch.load('best_network1_793.model')
-optimizer = optim.Adam(model.parameters(), lr=1e-5, betas=(0.9,0.999), eps=1e-8, weight_decay=0.0)
-scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.2)
+optimizer = optim.Adam(model.parameters(), lr=1e-4, betas=(0.9,0.999), eps=1e-8, weight_decay=0.0)
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
 
 best_eval = None
 for epoch in range(epochs):

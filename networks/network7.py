@@ -1,7 +1,14 @@
 import torch.nn as nn
-from torchvision.models import resnet18
-import matplotlib.pyplot as plt
-import torch
+from torchvision.models.video import r2plus1d_18
+# import matplotlib.pyplot as plt
+# (0): Conv2Plus1D(
+#           (0): Conv3d(64, 144, kernel_size=(1, 3, 3), stride=(1, 1, 1), padding=(0, 1, 1), bias=False)
+#           (1): BatchNorm3d(144, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+#           (2): ReLU(inplace=True)
+#           (3): Conv3d(144, 64, kernel_size=(3, 1, 1), stride=(1, 1, 1), padding=(1, 0, 0), bias=False)
+#         )
+#         (1): BatchNorm3d(64, eps=1e-05, momentum=0.1, affine=True, track_running_stats=True)
+#         (2): ReLU(inplace=True)
 
 class Net(nn.Module):
     def __init__(self):
@@ -10,31 +17,30 @@ class Net(nn.Module):
         self.outSize = (288, 512)
         self.upsample = nn.Upsample(size=self.outSize, mode='bicubic')
 
-        self.resnet = resnet18(pretrained=True)
-        for child in list(self.resnet.children())[:-2]:
+        self.resnet = r2plus1d_18(pretrained=True)
+        print(self.resnet)
+        exit()
+        for child in self.resnet.children():
             for param in child.parameters():
                 param.requires_grad = False
         self.conv = nn.Sequential(*list(self.resnet.children())[:-2]) # 9, 16
+
         # up        
         self.up = nn.Sequential(
                         nn.Conv2d(512, 128, 3, padding=1, bias=True),
-                        nn.BatchNorm2d(128),
                         nn.ReLU(inplace=True),
                         nn.Upsample(scale_factor=2,mode='bicubic'), # 18, 32
                         nn.Conv2d(128, 32, 3, padding=1, bias=True),
-                        nn.BatchNorm2d(32),
                         nn.ReLU(inplace=True),
                         nn.Upsample(scale_factor=4,mode='bicubic'), # 72, 128
                         nn.Conv2d(32, 8, 3, padding=1, bias=True),
-                        nn.BatchNorm2d(8),
                         nn.ReLU(inplace=True),
                         nn.Upsample(scale_factor=4,mode='bicubic'), # 288, 512
                         )
         self.up3d = nn.Sequential(
-                       nn.Conv3d(8, 1, (3,3,3), padding=(1,1,1), bias=True),
-                       nn.Sigmoid()
+                       nn.Conv3d(8, 1, 3, padding=1, bias=True)
                        )
-           
+                
     def forward(self, ip):
 
         # Combine batches and sequences
@@ -57,24 +63,15 @@ class LossFrame(nn.Module):
     def __init__(self):
         super(LossFrame, self).__init__()
         self.criterion = nn.KLDivLoss(reduction='batchmean')
+        #self.criterion = nn.KLDivLoss(reduction='mean')
+        self.softmax = nn.Softmax(dim=0)
 
-    def softmax(self, i):
-        return i / i.sum(dim=(1, 2, 3),keepdim=True)
-    
     def forward(self, expected, predicted):
         expected = expected.view(-1, *expected.shape[2:])
-        predicted = predicted.view(-1, *predicted.shape[2:])
-
-        # fig, ax = plt.subplots(1,2)
-        predicted = (self.softmax(predicted))
-        # ax[1].imshow(predicted[0, 0, :, :].cpu().detach().numpy(), cmap='bone')#, vmin=0,vmax=.00001)
-        # print(predicted[0, :, :, :].sum())
-        predicted = predicted.log() # see KLDiv
-        
+        predicted = predicted.view(-1, *predicted.shape[2:])  
+        #print((expected-predicted).abs().sum())
         expected = self.softmax(expected)
-        # ax[0].imshow(expected[0, 0, :, :].cpu().detach().numpy(), cmap='bone')#, vmin=0,vmax=.00001)
-        # plt.show()
-
+        predicted = (self.softmax(predicted)).log() # see KLDiv
         loss = self.criterion(predicted, expected)
         return loss
         
@@ -82,15 +79,18 @@ class LossSequence(nn.Module):
     def __init__(self):
         super(LossSequence, self).__init__()
         self.criterion = nn.KLDivLoss(reduction='batchmean')
+        #self.criterion = nn.KLDivLoss(reduction='mean')
+#        self.softmax = nn.Softmax()
+
 
     def softmax(self, i):
         return i.exp() / i.exp().sum(dim=(1, 2, 3, 4),keepdim=True)
         
     def forward(self, expected, predicted):
-        # fig, ax = plt.subplots(1,2)
-        # ax[0].imshow(expected[0, 0, 0, :, :].cpu().detach().numpy(), cmap='bone', vmin=0,vmax=1)
-        # ax[1].imshow(predicted[0, 0, 0, :, :].cpu().detach().numpy(), cmap='bone', vmin=0,vmax=1)
-        # plt.show()
+#        fig, ax = plt.subplots(1,2)
+#        ax[0].imshow(expected[0, 0, 0, :, :].cpu().detach().numpy(), cmap='bone')
+#        ax[1].imshow(es[0, 0, 0, :, :].cpu().detach().numpy(), cmap='bone')
+#        plt.show()
         predicted = (self.softmax(predicted)).log() # see KLDiv
         expected = self.softmax(expected)
 

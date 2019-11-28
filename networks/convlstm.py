@@ -179,8 +179,8 @@ class BConvLSTM(nn.Module):
                  batch_first, bias, return_all_layers)
 
     def forward(self, x):
-        x = self.front(x)
+        x = self.front(x)[0][0]
         x = x.flip((1))
-        x = self.back(x)
+        x = self.back(x)[0][0]
         x = x.flip((1))
         return x
