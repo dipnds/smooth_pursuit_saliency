@@ -1,8 +1,9 @@
 import os, random, torch
 from torch.utils.data import Dataset
 import numpy as np
+import skvideo.io as skv
 
-class VideoSet(Dataset):
+class NumpySet(Dataset):
     def __init__(self, path, sequence_length, augment=False, down_factor=1, output_raw=False):
         self.path = path
         self.vid_list = os.listdir(f'{path}ip/')
@@ -64,63 +65,56 @@ class VideoSet(Dataset):
             a = np.load(f'{self.path}ip/{self.vid_list[i]}')
             b = np.load(f'{self.path}op/{self.lab_list[i]}')
 
-# class SingleSet(IterableDataset):
-#     def __init__(self, path, sequence_length, augment=False, down_factor=1, output_raw=False):
-#         self.path = path
-#         self.vid_list = os.listdir(f'{path}ip/')
-#         self.lab_list = os.listdir(f'{path}op/')
-
-#         self.vid_list.sort()
-#         self.lab_list.sort()
-
-#         self.vid_list = self.blockVideos(self.vid_list)
-#         self.lab_list = self.blockVideos(self.lab_list)
-
-#         self.lens = self.getVidLen(self.vid_list)
+class VideoSet(Dataset):
+    def __init__(self, path, sequence_length, augment=False, overlap=None, down_factor=1, output_raw=False):
         
-#         self.sequence_length = sequence_length
-#         self.augment = augment
-#         self.down_factor = down_factor
-#         self.output_raw = output_raw
+        self.path = path
+        self.vid_list = os.listdir(f'{path}ip/')
+        self.vid_list.sort()
 
-#         self.mean = np.load('frame_mean.npy')
-#         self.std = np.load('frame_std.npy')
+#        self.lab_list = os.listdir(f'{path}op/')
+#        self.lab_list.sort()
 
-#     def blockVideos(self, blocklist):
-#         videos = []
-#         currentVid = self.getVidIdent(blocklist[0])
-#         currentBlock = []
-#         for i, item in enumerate(blocklist):
-#             if self.getVidIdent(item) == currentVid:
-#                 currentBlock.append(item)
-#             else:
-#                 videos.append(currentBlock)
-#                 currentVid = self.getVidIdent(item)
-#                 currentBlock = [item]
+        self.augment = augment
+        self.sequence_length = sequence_length
+        self.down_factor = down_factor
+        self.output_raw = output_raw
 
-#         videos.append(currentBlock)
-
-#         return videos
-
-#     def getVidIdent(self, filename):
-#         return filename[-9:]
-
-#     def getVidLen(self, vidlist):
-#         lens = []
-#         for vid in vidlist:
-#             l = 0
-#             for item in vid:
-#                 l += np.load(f'{self.path}ip/{item}').shape[0]
-#             lens.append(l)
-
-#         return lens
+        if overlap is None:
+            overlap = int(np.floor(sequence_length/2))
+        self.start_frames = np.zeros((0,2)).astype(int)
+        for idx, vid in enumerate(self.vid_list):
+            frame_count = int(skv.ffprobe(f'{path}ip/{vid}')['video']['@nb_frames'])
+            a = np.arange(0, frame_count-sequence_length+1, sequence_length-overlap)
+            b = idx * np.ones_like(a)
+            self.start_frames = np.append(self.start_frames,(np.vstack((b,a))).T,axis=0)
         
-#     def __len__(self):
-#         return len(self.vid_list)
+    def __len__(self):
+        return len(self.start_frames)
 
-#     def __iter__(self):
-#         worker = torch.utils.data.get_worker_info()
-#         per_worker = len(self.vid_list) / worker.num_workers
-#         print(worker.id)
-#         exit()
-
+    def random(self):
+        return bool(random.getrandbits(1))
+    
+    def __getitem__(self, idx):
+        
+        name = self.vid_list[self.start_frames[idx,0]]
+        frame = self.start_frames[idx,1]
+        
+        vid = skv.vread((f'{self.path}ip/{name}'))
+        ip = vid[frame:frame + self.sequence_length,:,:,:]
+        ip = ((ip/255) - [0.485, 0.456, 0.406]) / [0.229, 0.224, 0.225]
+        ip = np.transpose(ip,(0,3,1,2))
+        
+        vid = skv.vread((f'{self.path}op/{name}'))
+        op = vid[frame:frame + self.sequence_length,:,:,:]
+        op = np.transpose(op,(0,3,1,2))
+        
+        if self.augment:
+            if self.random():
+                ip = np.flip(ip, axis=2)
+                op = np.flip(op, axis=2)
+        
+        ip = ip.copy(); ip = torch.from_numpy(ip).float()
+        op = op.copy(); op = torch.from_numpy(op).float()
+        return {'ip':ip, 'op':op}
+        
