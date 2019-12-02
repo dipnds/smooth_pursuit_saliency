@@ -1,9 +1,10 @@
-import numpy as np
+def NSS(pred, op):
+    mean = pred - pred.mean(dim=(2, 3),keepdim=True)
+    std = pred.std(dim=(2, 3),keepdim=True)
+    std[std == 0] = 1
+    norm = mean / std
 
-def NSS(op, pred):
-    ma = pred - pred.mean(dim=(1, 2, 3, 4),keepdim=True)
-    sd = pred.std(dim=(1, 2, 3, 4),keepdim=True); sd[sd==0] = 1
-    ma = ma/sd
-    # op = (op+1)/2
-    score = (ma * (op.sign())).mean().cpu().detach().numpy()
+    score = (norm * op).sum(dim=(2, 3)) / op.sum(dim=(2, 3))  
+    score = score.mean().cpu().detach().numpy()
+
     return score

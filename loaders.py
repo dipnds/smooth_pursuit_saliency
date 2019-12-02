@@ -1,7 +1,6 @@
-import os, random, torch
+import os, random, torch, cv2
 from torch.utils.data import Dataset
 import numpy as np
-import skvideo.io as skv
 
 class NumpySet(Dataset):
     def __init__(self, path, sequence_length, augment=False, down_factor=1, output_raw=False):
@@ -67,13 +66,9 @@ class NumpySet(Dataset):
 
 class VideoSet(Dataset):
     def __init__(self, path, sequence_length, augment=False, overlap=None, down_factor=1, output_raw=False):
-        
         self.path = path
-        self.vid_list = os.listdir(f'{path}ip/')
+        self.vid_list = os.listdir(f'{path}ip/')#[:100]
         self.vid_list.sort()
-
-#        self.lab_list = os.listdir(f'{path}op/')
-#        self.lab_list.sort()
 
         self.augment = augment
         self.sequence_length = sequence_length
@@ -98,23 +93,56 @@ class VideoSet(Dataset):
     def __getitem__(self, idx):
         
         name = self.vid_list[self.start_frames[idx,0]]
-        frame = self.start_frames[idx,1]
-        
-        vid = skv.vread((f'{self.path}ip/{name}'))
-        ip = vid[frame:frame + self.sequence_length,:,:,:]
+        start_frame = self.start_frames[idx,1]
+
+        ip = np.zeros((self.sequence_length, 288, 512, 3))
+
+        capture = cv2.VideoCapture(f'{self.path}ip/{name}')
+        capture.set(1, start_frame)
+        for i in range(self.sequence_length):
+            ret, frame = capture.read()
+            ip[i, :, :, :] = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        capture.release()
+
+        if self.output_raw:
+            raw = ip
+            pointMap = self.getPointMap(raw, name, start_frame)
+
         ip = ((ip/255) - [0.485, 0.456, 0.406]) / [0.229, 0.224, 0.225]
         ip = np.transpose(ip,(0,3,1,2))
         
-        vid = skv.vread((f'{self.path}op/{name}'))
-        op = vid[frame:frame + self.sequence_length,:,:,:]
+        op = np.zeros((self.sequence_length, 288, 512, 3))
+
+        capture = cv2.VideoCapture(f'{self.path}op/{name}')
+        capture.set(1, start_frame)
+        for i in range(self.sequence_length):
+            ret, frame = capture.read()
+            op[i, :, :, :] = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
+        capture.release()
+        op = op / 255
         op = np.transpose(op,(0,3,1,2))
         
         if self.augment:
             if self.random():
-                ip = np.flip(ip, axis=2)
-                op = np.flip(op, axis=2)
+                ip = np.flip(ip, axis=3)
+                op = np.flip(op, axis=3)
         
         ip = ip.copy(); ip = torch.from_numpy(ip).float()
         op = op.copy(); op = torch.from_numpy(op).float()
-        return {'ip':ip, 'op':op}
-        
+        if not self.output_raw:
+            return {'ip':ip, 'op':op}
+        else:
+            return {'ip':ip, 'op':op, 'raw':raw, 'pointMap': pointMap}
+
+    def getPointMap(self, raw, name, start_frame):
+        points = np.load(f'{self.path}pts/{name[:-4]}.npy', allow_pickle=True)
+        pointMap = np.zeros_like(raw)
+        shape = pointMap.shape
+
+        for index, subset in enumerate(points):
+            for i in range(shape[0]):
+                y = subset[:, 2][subset[:, 0] == (i + start_frame)]
+                x = subset[:, 1][subset[:, 0] == (i + start_frame)]
+                pointMap[i, :, :, index], _, _ = np.histogram2d(y, x, bins=(shape[1], shape[2]), range=[[-0.5, shape[1] - 0.5], [-0.5, shape[2] - 0.5]])
+       
+        return pointMap
