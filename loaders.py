@@ -1,6 +1,7 @@
 import os, random, torch, cv2
 from torch.utils.data import Dataset
 import numpy as np
+import skvideo.io as skv
 
 class NumpySet(Dataset):
     def __init__(self, path, sequence_length, augment=False, down_factor=1, output_raw=False):
@@ -29,7 +30,8 @@ class NumpySet(Dataset):
         ip = np.load(f'{self.path}ip/{self.vid_list[idx]}')
         if self.output_raw:
             raw = ip
-        ip = ((ip/255) - [0.485, 0.456, 0.406]) / [0.229, 0.224, 0.225]
+        #ip = ((ip/255) - [0.485, 0.456, 0.406]) / [0.229, 0.224, 0.225] # ResNet
+        ip = ((ip/255) - [0.43216, 0.394666, 0.37645]) / [0.22803, 0.22145, 0.216989] # ResNet(2+1)D
 
         # ip = (ip - self.mean) / self.std
         op = (np.load(f'{self.path}op/{self.lab_list[idx]}') + 1) / 2 # careful that NSS has a similar conversion (now removed)
@@ -67,7 +69,7 @@ class NumpySet(Dataset):
 class VideoSet(Dataset):
     def __init__(self, path, sequence_length, augment=False, overlap=None, down_factor=1, output_raw=False):
         self.path = path
-        self.vid_list = os.listdir(f'{path}ip/')#[:100]
+        self.vid_list = os.listdir(f'{path}ip/')#[:10]
         self.vid_list.sort()
 
         self.augment = augment
