@@ -5,22 +5,22 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 
-from networks.network9 import *
-import networks.network9 as network
+from networks.network2 import *
+import networks.network2 as network
 from networks.losses import *
 from loaders import *
 
 from metrics import NSS
 import matplotlib.pyplot as plt
 
-batch_size = 16
+batch_size = 8
 log_nth = 10
 down_factor = 1
 epochs = 10
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-tr_set = VideoSet('train/', sequence_length=25, augment=True, down_factor=down_factor)
-ev_set = VideoSet('eval/', sequence_length=25, augment=False, down_factor=down_factor)
+tr_set = VideoSet('train/', sequence_length=24, augment=True, down_factor=down_factor)
+ev_set = VideoSet('eval/', sequence_length=24, augment=False, down_factor=down_factor)
 eval_loader = DataLoader(ev_set, batch_size=batch_size, shuffle=True, num_workers=5)
 train_loader = DataLoader(tr_set, batch_size=batch_size, shuffle=True, num_workers=5)
 # tr_set.check(); ev_set.check()
@@ -71,7 +71,7 @@ def train(model, epochNum):
 #    writer.add_image('PredictionFix/fix_train',pred_fix[0,12,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
     writer.add_image('PredictionSP/sp_train',pred_sp[0,12,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
 
-    # torch.save(model, f"{name}.model")
+    torch.save(model, f"{name}.model")
 
 def evaluate(model, epoch, best_eval, scheduler):
     criterion = LossSequence()

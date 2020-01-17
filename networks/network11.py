@@ -8,7 +8,7 @@ class Net(nn.Module):
         super(Net, self).__init__()
 
         self.outSize = (288, 512)
-        self.upsample = nn.Upsample(size=self.outSize, mode='bicubic', align_corners=False)
+        self.upsample = nn.Upsample(size=self.outSize, mode='bicubic')
 
         self.resnet = resnet18(pretrained=True)
         for child in list(self.resnet.children())[:-2]:
@@ -37,32 +37,39 @@ class Net(nn.Module):
         self.lstm2a = ConvBLSTM(in_channels=128, hidden_channels=128, kernel_size=(3, 3), num_layers=1, batch_first=True)
         self.lstm2b = ConvBLSTM(in_channels=128, hidden_channels=128, kernel_size=(3, 3), num_layers=1, batch_first=True)
 
-        self.up2a = nn.Sequential(
+        self.up2 = nn.Sequential(
                 nn.Conv2d(128, 32, 3, padding=1, bias=True),
                 nn.BatchNorm2d(32),
                 nn.ReLU(inplace=True),
-                nn.Upsample(scale_factor=2,mode='bicubic', align_corners=False), # 72, 128
+                nn.Upsample(scale_factor=2,mode='bicubic'), # 72, 128
                 nn.Conv2d(32, 8, 3, padding=1, bias=True),
                 nn.BatchNorm2d(8),
                 nn.ReLU(inplace=True),
-                nn.Upsample(scale_factor=4,mode='bicubic', align_corners=False), # 72, 128
+                nn.Upsample(scale_factor=4,mode='bicubic'), # 72, 128
                 nn.Conv2d(8, 1, 3, padding=1, bias=True),
                 nn.BatchNorm2d(1),
-                nn.Upsample(scale_factor=4,mode='bicubic', align_corners=False), # 288, 512
+                nn.Upsample(scale_factor=4,mode='bicubic'), # 288, 512
                 )
 
-        self.up2b = nn.Sequential(
-                nn.Conv2d(128, 32, 3, padding=1, bias=True),
+        self.lin = nn.Sequential(
+                nn.Conv2d(128, 32, 1, padding=0, bias=True),
                 nn.BatchNorm2d(32),
                 nn.ReLU(inplace=True),
-                nn.Upsample(scale_factor=2,mode='bicubic', align_corners=False), # 72, 128
-                nn.Conv2d(32, 8, 3, padding=1, bias=True),
-                nn.BatchNorm2d(8),
+                nn.Flatten(), # 72, 128
+                nn.Linear(4608, 1024, bias=True),
+                nn.BatchNorm1d(1024),
                 nn.ReLU(inplace=True),
-                nn.Upsample(scale_factor=4,mode='bicubic', align_corners=False), # 72, 128
-                nn.Conv2d(8, 1, 3, padding=1, bias=True),
-                nn.BatchNorm2d(1),
-                nn.Upsample(scale_factor=4,mode='bicubic', align_corners=False), # 288, 512
+                nn.Linear(1024, 256, bias=True),
+                nn.BatchNorm1d(256),
+                nn.ReLU(inplace=True),
+                nn.Linear(256, 64, bias=True),
+                nn.BatchNorm1d(64),
+                nn.ReLU(inplace=True),
+                nn.Linear(64, 8, bias=True),
+                nn.BatchNorm1d(8),
+                nn.ReLU(inplace=True),
+                nn.Linear(8, 1, bias=True),
+                nn.BatchNorm1d(1)
                 )
         
         self.sigmoid = nn.Sigmoid()
@@ -86,8 +93,8 @@ class Net(nn.Module):
 
         fa = self.up2a(fa)
         fa = fa.reshape(*ip.shape[:2], *fa.shape[-3:])
-        fb = self.up2b(fb)
-        fb = fb.reshape(*ip.shape[:2], *fb.shape[-3:])
+        fb = self.lin(fb)
+        fb = fb.reshape(*ip.shape[:2], 1)
         fa = self.sigmoid(fa)
         fb = self.sigmoid(fb)
 

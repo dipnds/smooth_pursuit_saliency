@@ -134,7 +134,7 @@ class VideoSet(Dataset):
         if not self.output_raw:
             return {'ip':ip, 'op':op}
         else:
-            return {'ip':ip, 'op':op, 'raw':raw, 'pointMap': pointMap}
+            return {'ip':ip, 'op':op, 'raw':raw, 'pointMap': pointMap, 'file': name}
 
     def getPointMap(self, raw, name, start_frame):
         points = np.load(f'{self.path}pts/{name[:-4]}.npy', allow_pickle=True)
