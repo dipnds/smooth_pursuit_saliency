@@ -92,13 +92,12 @@ with torch.no_grad():
         if currentName is None:
             currentName = data['file']
         if data['file'] != currentName:
-            currentName = data['file']
             metricsVideo()
-
+            currentName = data['file']
 
         ip = data['ip'][:, :, :, :, :].to(device)
-        op_fix.append(data['op'][:, :, 1:2, :, :].to(device))
-        op_sp.append(data['op'][:, :, 2:3, :, :].to(device))
+        op_fix.append(data['op'][:, :, 1:2, :, :].cpu())
+        op_sp.append(data['op'][:, :, 2:3, :, :].cpu())
         points_fix.append(data['pointMap'][:, :, :, :, 1].cpu())
         points_sp.append(data['pointMap'][:, :, :, :, 2].cpu())
 
