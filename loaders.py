@@ -69,8 +69,9 @@ class NumpySet(Dataset):
 class VideoSet(Dataset):
     def __init__(self, path, sequence_length, augment=False, overlap=None, down_factor=1, output_raw=False):
         self.path = path
-        self.vid_list = os.listdir(f'{path}ip/')#[:10]
+        self.vid_list = os.listdir(f'{path}ip/')
         self.vid_list.sort()
+        # self.vid_list = self.vid_list[23:]
 
         self.augment = augment
         self.sequence_length = sequence_length
