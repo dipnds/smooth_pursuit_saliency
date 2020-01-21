@@ -1,6 +1,6 @@
 import torch.nn as nn
 from torchvision.models.video import r2plus1d_18
-from .convlstm import BConvLSTM
+from .convlstm import ConvBLSTM
 
 class Net(nn.Module):
     def __init__(self):
@@ -16,8 +16,8 @@ class Net(nn.Module):
             for param in child.parameters():
                 param.requires_grad = False
         self.conv = nn.Sequential(*list(self.resnet3d.children())[:-2]) # 9, 16
-
-        self.lstm = BConvLSTM(input_size=(7,7), input_dim=512, hidden_dim=[512], kernel_size=(3, 3), num_layers=1, batch_first=True)
+       
+        self.lstm = ConvBLSTM(in_channels=512, hidden_channels=512, kernel_size=(3, 3), num_layers=1, batch_first=True)
         
         self.up = nn.Sequential(
                 nn.Conv2d(512, 128, 3, padding=1, bias=True),

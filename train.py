@@ -5,8 +5,8 @@ import torch.optim as optim
 from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 
-from networks.network9 import *
-import networks.network9 as network
+from networks.network3 import *
+import networks.network3 as network
 from networks.losses import *
 from loaders import *
 
@@ -19,8 +19,8 @@ down_factor = 1
 epochs = 10
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-tr_set = VideoSet('train/', sequence_length=25, augment=True, down_factor=down_factor)
-ev_set = VideoSet('eval/', sequence_length=25, augment=False, down_factor=down_factor)
+tr_set = VideoSet('train/', sequence_length=5, augment=True, down_factor=down_factor)
+ev_set = VideoSet('eval/', sequence_length=5, augment=False, down_factor=down_factor)
 eval_loader = DataLoader(ev_set, batch_size=batch_size, shuffle=True, num_workers=5)
 train_loader = DataLoader(tr_set, batch_size=batch_size, shuffle=True, num_workers=5)
 # tr_set.check(); ev_set.check()
@@ -50,11 +50,13 @@ def train(model, epochNum):
 #        exit()
 
 #         loss_fix = criterion(op[:,:,1:2,:,:], pred_fix[:,:,0:1,:,:])
-        loss_sp = criterion(op[:,:,2:3,:,:], pred_sp[:,:,0:1,:,:])
+        loss_sp = criterion(op[:,:,1:2,:,:], pred_sp[:,:,0:1,:,:])
         loss_sp.backward() # (loss_fix+loss_sp).backward()
         optimizer.step()
 #         tr_loss_fix.append(loss_fix.detach().item())
         tr_loss_sp.append(loss_sp.detach().item())
+        # if batch_i == 4:
+            # break
         # with torch.no_grad():
             # metric.append(NSS(op,pred))
         if (batch_i+1) % log_nth == 0:
@@ -67,9 +69,9 @@ def train(model, epochNum):
 #    writer.add_scalar('Loss/train', np.mean(tr_loss_fix) + np.mean(tr_loss_sp), epoch)
     writer.add_image('Input/train', ipImg,global_step=epoch,dataformats='CHW')
 #    writer.add_image('TargetFix/fix_train',op[0,12,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
-    writer.add_image('TargetSP/sp_train',op[0,12,1:2,:,:].detach(),global_step=epoch,dataformats='CHW')
+    writer.add_image('TargetSP/sp_train',op[0,2,1:2,:,:].detach(),global_step=epoch,dataformats='CHW')
 #    writer.add_image('PredictionFix/fix_train',pred_fix[0,12,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
-    writer.add_image('PredictionSP/sp_train',pred_sp[0,12,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
+    writer.add_image('PredictionSP/sp_train',pred_sp[0,2,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
 
     # torch.save(model, f"{name}.model")
 
@@ -90,6 +92,8 @@ def evaluate(model, epoch, best_eval, scheduler):
 #            ev_loss_fix.append(loss_fix.detach().item())
             ev_loss_sp.append(loss_sp.detach().item())
             # metric.append(NSS(op,pred))
+            # if batch_i == 4:
+                # break
 
         loss = np.mean(ev_loss_sp)# + np.mean(ev_loss_fix)
         ipImg = ip[0,0,:,:,:]
@@ -104,16 +108,16 @@ def evaluate(model, epoch, best_eval, scheduler):
 #        writer.add_scalar('Loss/eval', np.mean(ev_loss_fix) + np.mean(ev_loss_sp), epoch)
         writer.add_image('Input/eval', ipImg,global_step=epoch,dataformats='CHW')
 #        writer.add_image('TargetFix/fix_eval',op[0,12,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
-        writer.add_image('TargetSP/sp_eval',op[0,12,1:2,:,:].detach(),global_step=epoch,dataformats='CHW')
+        writer.add_image('TargetSP/sp_eval',op[0,2,1:2,:,:].detach(),global_step=epoch,dataformats='CHW')
 #        writer.add_image('PredictionFix/fix_eval',pred_fix[0,12,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
-        writer.add_image('PredictionSP/sp_eval',pred_sp[0,12,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
+        writer.add_image('PredictionSP/sp_eval',pred_sp[0,2,0:1,:,:].detach(),global_step=epoch,dataformats='CHW')
     
     scheduler.step()
     return best_eval
     
 model = Net().to(device)
 # model = torch.load('best_network1_793.model')
-optimizer = optim.Adam(model.parameters(), lr=1e-5, betas=(0.9,0.999), eps=1e-8, weight_decay=0.0)
+optimizer = optim.Adam(model.parameters(), lr=1e-4, betas=(0.9,0.999), eps=1e-8, weight_decay=0.0)
 scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=50, gamma=0.1)
 
 best_eval = None

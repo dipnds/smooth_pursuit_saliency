@@ -11,7 +11,9 @@ from metrics import *
 
 
 device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-ev_set = VideoSet('eval/', sequence_length=24, augment=False, down_factor=1, output_raw=True)
+# ev_set = VideoSet('mikhail/', sequence_length=24, augment=False, down_factor=1, output_raw=True)
+ev_set = VideoSet('gazecom/', sequence_length=24, augment=False, down_factor=1, output_raw=True)
+
 eval_loader = DataLoader(ev_set, batch_size=1, shuffle=False, num_workers=0)
 
 nss_fix_fix = []
@@ -85,7 +87,8 @@ def metricsVideo():
     op_sp = []
     preds = []
 
-model = torch.load('bests/best_network2_sp.model')
+model = torch.load('bests/best_network4_l1reg.model')
+# writer = skvideo.io.FFmpegWriter("inf_sp.mp4", outputdict={'-r': '25', '-b': '300000000'})
 with torch.no_grad():
     batching = tqdm.tqdm(enumerate(eval_loader), total=len(eval_loader))
     for batch_i, data in batching:
@@ -101,7 +104,7 @@ with torch.no_grad():
         points_fix.append(data['pointMap'][:, :, :, :, 1].cpu())
         points_sp.append(data['pointMap'][:, :, :, :, 2].cpu())
 
-        pred_sp = model(ip)
+        pred_sp, _ = model(ip)
         preds.append(pred_sp[:, :, 0, :, :].detach().cpu())
 
         # if data['pointMap'][:, :, :, :, 2].cpu().sum() > 1:
@@ -111,27 +114,20 @@ with torch.no_grad():
         #     torch.save(data['pointMap'][:, :, :, :, 2].cpu(), 'eval_points.pt')
         #     exit()
 
+        # ip = np.transpose((data['raw'].squeeze().numpy()).astype(np.uint8), (0, 3, 1, 2))
+        # # op_fix = (np.squeeze(np.repeat(data['op'][:, :, 1:2, :, :].cpu().numpy(), 3, axis=2)) * 255).astype(np.uint8)
+        # # pred_fix = (np.squeeze(np.repeat(pred_fix.cpu().numpy(), 3, axis=2)) * 255).astype(np.uint8)
+        # sp_out = (np.squeeze(np.repeat(data['op'][:, :, 1:2, :, :].cpu().numpy(), 3, axis=2)) * 255).astype(np.uint8)
+        # pred_sp = (np.squeeze(np.repeat(pred_sp.cpu().numpy(), 3, axis=2)) * 255).astype(np.uint8)
+
+        # video = np.transpose(np.concatenate((ip, pred_sp, sp_out), axis=3), (0, 2, 3, 1))
+        # for index, frame in enumerate(video):
+        #     if ip[index].sum() != 0:
+        #         writer.writeFrame(frame)
+
     metricsVideo()
 
 
-
-        #if batch_i > 10:
-            #break
-
-# nss_fix_fix = np.array(nss_fix_fix)
-# nss_fix_fix = nss_fix_fix[~np.isnan(nss_fix_fix)]
-
-# nss_sp_sp = np.array(nss_sp_sp)
-# nss_sp_sp = nss_sp_sp[~np.isnan(nss_sp_sp)]
-
-# nss_fix_sp = np.array(nss_fix_sp)
-# nss_fix_sp = nss_fix_sp[~np.isnan(nss_fix_sp)]
-
-# nss_sp_fix = np.array(nss_sp_fix)
-# nss_sp_fix = nss_sp_fix[~np.isnan(nss_sp_fix)]
-
-# print(f'NSS Fix: {np.mean(nss_fix_fix):2E}  Std: {np.std(nss_fix_fix):2E}  Min: {np.min(nss_fix_fix):2E}  Max: {np.max(nss_fix_fix):2E}')
-# print(f'NSS SP: {np.mean(nss_sp_sp):2E}  Std: {np.std(nss_sp_sp):2E}  Min: {np.min(nss_sp_sp):2E}  Max: {np.max(nss_sp_sp):2E}')
-
-# print(f'NSS Fix on SP GT: {np.mean(nss_fix_sp):2E}  Std: {np.std(nss_fix_sp):2E}  Min: {np.min(nss_fix_sp):2E}  Max: {np.max(nss_fix_sp):2E}')
-# print(f'NSS SP on Fix GT: {np.mean(nss_sp_fix):2E}  Std: {np.std(nss_sp_fix):2E}  Min: {np.min(nss_sp_fix):2E}  Max: {np.max(nss_sp_fix):2E}')
+# writer.close()
+# print(nss_fix_fix)
+# print(nss_sp_sp)

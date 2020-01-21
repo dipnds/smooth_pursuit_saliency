@@ -48,13 +48,15 @@ class PointExtractor:
         self.makeSaliency(f, raw_shape)
 
     def makeSaliency(self, f, shape):
-        data_files = os.listdir(f'annotation/{f[:-4]}/')
+        yratio = self.frame_height / shape[1]
+        xratio = self.frame_width / shape[2]
+        data_files = os.listdir(f'{self.name}/annotation/{f[:-4]}/')
         for data_file in data_files:
-            labels = arff.loadarff(f'annotation/{f[:-4]}/{data_file}')
+            labels = arff.loadarff(f'{self.name}/annotation/{f[:-4]}/{data_file}')
             movementLabels = np.ones(labels[0]['EYE_MOVEMENT_TYPE'].shape, dtype=np.float32) * Labels.OTHER.value
             movementLabels[labels[0]['EYE_MOVEMENT_TYPE'] == bytes(Labels.FIX.name, 'utf-8')] = Labels.FIX.value
             movementLabels[labels[0]['EYE_MOVEMENT_TYPE'] == bytes(Labels.SP.name, 'utf-8')] = Labels.SP.value
-            labelArray = np.vstack([labels[0]['time'], labels[0]['x'], labels[0]['y'], movementLabels]).T.astype(np.float32)
+            labelArray = np.vstack([labels[0]['time'], labels[0]['x'] * xratio, labels[0]['y'] * yratio, movementLabels]).T.astype(np.float32)
             try:
                 frame_period = 1e6/eval(skvideo.io.ffprobe(f'{self.name}/{f}')['video']['@avg_frame_rate'])
                 labelArray[:, 0] = (labelArray[:, 0]/frame_period).astype(int)
@@ -72,15 +74,18 @@ class PointExtractor:
 
 train_videos = [str(filename.name) for filename in pathlib.Path('train/').glob('*.avi')]
 eval_videos = [str(filename.name) for filename in pathlib.Path('eval/').glob('*.avi')]
-test_videos = [str(filename.name) for filename in pathlib.Path('test/').glob('*.avi')]
+mikhail_videos = [str(filename.name) for filename in pathlib.Path('mikhail/').glob('*.avi')]
+test_videos = [str(filename.name) for filename in pathlib.Path('gazecom/').glob('*.mp4')]
 
-train_set = PointExtractor('train', train_videos)
-train_set.load()
-
+# train_set = PointExtractor('train', train_videos)
+# train_set.load()
 
 eval_set = PointExtractor('eval', eval_videos)
 eval_set.load()
 
-# test_set = DataLoader('test', test_videos)
-# test_set.load()
+eval_set = PointExtractor('mikhail', mikhail_videos)
+eval_set.load()
+
+test_set = PointExtractor('gazecom', test_videos)
+test_set.load()
 

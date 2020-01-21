@@ -33,7 +33,7 @@ class DataLoader:
 
     def load(self):
         print(f'Loading {self.name}')
-        pool = multiprocessing.Pool(4)
+        pool = multiprocessing.Pool(3)
         manager = multiprocessing.Manager()
         lock = manager.Lock()
         file_count = manager.Value('i', 0)
@@ -77,11 +77,11 @@ class DataLoader:
         return resized
 
     def makeSaliency(self, f, shape):
-        # saliencyMap = np.zeros(shape, dtype=np.float32)
-        saliencyMap = np.memmap(f'/tmp/{f}', dtype=np.float32, mode='w+', shape=shape)
-        data_files = os.listdir(f'annotation/{f[:-4]}/')
+        saliencyMap = np.zeros(shape, dtype=np.float32)
+        # saliencyMap = np.memmap(f'/tmp/{f}', dtype=np.float32, mode='w+', shape=shape)
+        data_files = os.listdir(f'{self.name}/annotation/{f[:-4]}/')
         for data_file in data_files:
-            labels = arff.loadarff(f'annotation/{f[:-4]}/{data_file}')
+            labels = arff.loadarff(f'{self.name}/annotation/{f[:-4]}/{data_file}')
             movementLabels = np.ones(labels[0]['EYE_MOVEMENT_TYPE'].shape, dtype=np.float32) * Labels.OTHER.value
             movementLabels[labels[0]['EYE_MOVEMENT_TYPE'] == bytes(Labels.FIX.name, 'utf-8')] = Labels.FIX.value
             movementLabels[labels[0]['EYE_MOVEMENT_TYPE'] == bytes(Labels.SP.name, 'utf-8')] = Labels.SP.value
@@ -113,7 +113,7 @@ class DataLoader:
             resizedSaliency[:, :, :, index] = ( (resized - minimum) / ((maximum if maximum != 0 else 1) - minimum) ) * 255
 
         # self.renderVideo(f, saliencyMap)
-        pathlib.Path(f'/tmp/{f}').unlink()
+        # pathlib.Path(f'/tmp/{f}').unlink()
         
 
         return resizedSaliency
@@ -163,19 +163,19 @@ class DataLoader:
 
 train_videos = [str(filename.name) for filename in pathlib.Path('train/').glob('*.avi')]
 eval_videos = [str(filename.name) for filename in pathlib.Path('eval/').glob('*.avi')]
-test_videos = [str(filename.name) for filename in pathlib.Path('test/').glob('*.avi')]
+test_videos = [str(filename.name) for filename in pathlib.Path('gazecom/').glob('*.mp4')]
 
-train_set = DataLoader('train', train_videos)
+# train_set = DataLoader('train', train_videos)
 # train_set.calcDistribution()
-train_set.load()
+# train_set.load()
 # train_set.writeDistribution()
 # train_set.normaliseFrames(train_set)
 
-eval_set = DataLoader('eval', eval_videos)
-eval_set.load()
+# eval_set = DataLoader('eval', eval_videos)
+# eval_set.load()
 #eval_set.normaliseFrames(train_set)
 
-# test_set = DataLoader('test', test_videos)
-# test_set.load()
+test_set = DataLoader('gazecom', test_videos)
+test_set.load()
 # test_set.normaliseFrames(train_set)
 
