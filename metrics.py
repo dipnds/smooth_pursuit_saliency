@@ -15,6 +15,33 @@ def NSS(pred, op):
     return float(score)
 
 
+def auc_Cross(pred, op, cross_op, splits_count=100):
+    # op is gt pointmap, cross_op is other gt point map
+    pred = pred.cpu().detach().squeeze().numpy()
+    op = np.sign(op.cpu().detach().squeeze().numpy())
+    cross_op = np.sign(cross_op.cpu().detach().squeeze().numpy())
+
+    positive_samples = np.argwhere(op == 1)
+    cross_samples = np.argwhere(cross_op == 1)
+    negative_samples = cross_samples
+
+    replace = False
+    if negative_samples.shape[0] < positive_samples.shape[0]:
+        replace = True
+
+    np.random.seed(0)
+    aucs = []
+    for _ in range(splits_count):
+        negative_samples = negative_samples[np.random.choice(negative_samples.shape[0], positive_samples.shape[0], replace=replace)]
+
+        all_samples = np.vstack([positive_samples, negative_samples]).astype(int)
+        actual_labels = np.hstack([np.ones((positive_samples.shape[0])), np.zeros((negative_samples.shape[0]))])
+        predicted = pred[all_samples[:, 0], all_samples[:, 1], all_samples[:, 2]]
+
+        aucs.append(cal_auc(predicted, actual_labels))
+
+    return np.mean(aucs)
+
 def auc_Judd(pred, op):
     # op is gt point map
     
